@@ -1,0 +1,5 @@
+package-lock.json
+packages/core/fixtures/
+# 文档与本地配置不做格式化检查,lint 只管代码
+*.md
+.claude/
