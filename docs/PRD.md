@@ -72,7 +72,7 @@
 | --- | --- | --- |
 | 客户端 | **Expo (React Native + TypeScript) + Expo Router** | 一套代码出 iOS/Android/Web;朋友的免登录链接直接由同一代码库的 Web 版承接,不用维护两个前端 |
 | 后端 API | **Node + Hono(TypeScript)**,部署在 **Heroku**(复用 overstep 的 $5/月方案) | 自己写 API 层,鉴权/路由/中间件都是可测试对象,TDD 练习价值比 BaaS 高 |
-| 数据库 | **Postgres on Heroku**(若现有方案不含 Postgres 附加组件,备选:免费的 Neon Postgres,Heroku 只跑 API) | 复用已付费资源 |
+| 数据库 | **Neon Postgres 免费层**(已核实:Heroku 账户无 Postgres 附加组件,加装需另付 ~$5/月) | 零新增成本;Heroku Eco 订阅按账户计,AAbill 新 app 共用现有 dyno 时数 |
 | 图片存储 | **Cloudinary 免费层** | Heroku 文件系统是临时的,重启即丢,不能存发票图片 |
 | 实时同步 | MVP 用 **5 秒轮询**;二期升级 WebSocket(Socket.io,Heroku 支持) | 轮询实现和测试都简单,认领勾选场景延迟 5 秒完全可接受 |
 | AI 识别 | **OpenAI API**(gpt-4o 系列 vision + structured outputs 强制 JSON schema);代码层做 provider 抽象,DeepSeek V4 作为可切换备选 | DeepSeek V4 虽已支持多模态且更便宜,但无严格 schema 约束的结构化输出;我们量小,可靠性优先。月成本上限 $10(OpenAI 后台设硬限额 + 服务端记录用量) |
@@ -192,10 +192,7 @@ M1 放最前是刻意的:业务规则是这个产品的灵魂,而且纯函数 TD
 3. AI:OpenAI gpt-4o 系列,月成本上限 $10(OpenAI 后台硬限额 + 服务端用量记录);provider 抽象,DeepSeek V4 为备选。
 4. 中文翻译:识别时由同一次 OpenAI 调用一并输出。
 5. 分享链接:账单锁定 30 天后失效。
-6. 后端:Heroku(复用 overstep 的 $5/月方案)+ Node/Hono API;仓库放本地 AAbill 文件夹并发布 GitHub。
-
-## 8. 待确认
-
-1. 你的 Heroku $5/月是 dyno(Eco)还是已含 Postgres 附加组件?Heroku Postgres 最低档(Essential-0)是**另加约 $5/月**。若不想加钱,可用免费的 Neon Postgres,Heroku 只跑 API。
-2. 仓库结构(§5.2)确认后,即创建 AAbill 基本文件。
+6. 后端:Heroku(复用 overstep 的 $5/月 Eco 订阅)+ Node/Hono API;仓库放本地 AAbill 文件夹并发布 GitHub。
+7. 数据库:**Neon Postgres 免费层**。2026-07-06 核实 Heroku 账户 Datastores 为空(无任何 Postgres 附加组件),加装 Essential-0 需另付 ~$5/月;Neon 免费层对个人使用足够。Eco dyno 会休眠(闲置 30 分钟),首次访问冷启动约 10 秒,个人场景可接受。
+8. 仓库骨架已按 §5.2 创建并完成首次 commit(2026-07-06):README、CLAUDE.md、docs(PRD/architecture/tdd-workflow/adr×2/tdd-log)、目录结构、git init。
 

@@ -8,7 +8,7 @@
 
 ## 决策
 
-Node + Hono API 部署 Heroku,Postgres 同在 Heroku(或 Neon 免费层,视现有方案是否含 Postgres 附加组件)。放弃 Supabase。
+Node + Hono API 部署 Heroku(复用账户 Eco 订阅);数据库用 Neon Postgres 免费层——已核实 Heroku 账户无 Postgres 附加组件,加装需另付 ~$5/月。放弃 Supabase。
 
 ## 理由
 
