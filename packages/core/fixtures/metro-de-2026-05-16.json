@@ -1,0 +1,408 @@
+{
+  "meta": {
+    "source": "Metro 真实发票 2026-05-16(数据取自手工 AA 分账 Excel)",
+    "tax_country": "DE",
+    "currency": "EUR",
+    "vat_rates": {
+      "A": 0.19,
+      "B": 0.07
+    },
+    "families": [
+      "Rio家",
+      "Yuxi家",
+      "老唐家"
+    ]
+  },
+  "invoice_totals_printed": {
+    "net": "517.21",
+    "vat_a": "0.59",
+    "vat_b": "35.99",
+    "vat_total": "36.58",
+    "gross": "553.79"
+  },
+  "notes": [
+    "unit_price_net 为 Metro INT KD 折后净价,KG 商品有效单价含 0.1 分精度(如 6.488€/kg),金额表示方式是 core 的设计决策之一",
+    "手工 Excel 用浮点计算,Σ净额=517.1939 vs 发票 517.21(差 -0.016),Σ含税=553.7670 vs 553.79(差 -0.023):真实发票按行四舍五入到分再汇总,Excel 没有——core 的 validate() 必须复现发票的行级取整规则使校验通过",
+    "reference_family 是当次手工分配结果,可用于对照 settle() 输出,但手工汇总本身带浮点误差,不能直接当 golden 值"
+  ],
+  "items": [
+    {
+      "name": "10mx30cm KRAFT-ALUFOLIE",
+      "name_zh": "铝箔纸 (30cm×10m)",
+      "qty": 1,
+      "unit": "ST",
+      "unit_price_net": "1.99",
+      "tax_class": "A",
+      "reference_family": "老唐家"
+    },
+    {
+      "name": "29cmx50m MPRO FRISCH.FOLIE 14M",
+      "name_zh": "保鲜膜 (29cm×50m)",
+      "qty": 1,
+      "unit": "ST",
+      "unit_price_net": "1.09",
+      "tax_class": "A",
+      "reference_family": "老唐家"
+    },
+    {
+      "name": "10l ARO RAPSOEL PET FL.",
+      "name_zh": "ARO 菜籽油 10L",
+      "qty": 1,
+      "unit": "DS",
+      "unit_price_net": "12.49",
+      "tax_class": "B",
+      "reference_family": "老唐家"
+    },
+    {
+      "name": "10l ARO RAPSOEL PET FL.",
+      "name_zh": "ARO 菜籽油 10L",
+      "qty": 1,
+      "unit": "DS",
+      "unit_price_net": "12.49",
+      "tax_class": "B",
+      "reference_family": "Rio家"
+    },
+    {
+      "name": "10l ARO RAPSOEL PET FL.",
+      "name_zh": "ARO 菜籽油 10L",
+      "qty": 1,
+      "unit": "DS",
+      "unit_price_net": "12.49",
+      "tax_class": "B",
+      "reference_family": "Yuxi家"
+    },
+    {
+      "name": "2X200G ARO BUTTERKEKS",
+      "name_zh": "ARO 黄油饼干 2×200g",
+      "qty": 1,
+      "unit": "PG",
+      "unit_price_net": "1.77",
+      "tax_class": "B",
+      "reference_family": "老唐家"
+    },
+    {
+      "name": "56g HUBBA BUBBA BUBB COLA",
+      "name_zh": "泡泡糖可乐味 56g",
+      "qty": 1,
+      "unit": "BO",
+      "unit_price_net": "1.59",
+      "tax_class": "B",
+      "reference_family": "老唐家"
+    },
+    {
+      "name": "165g PRINGLES DOSE SWEET PAP",
+      "name_zh": "品客薯片甜辣椒味 165g",
+      "qty": 1,
+      "unit": "DS",
+      "unit_price_net": "2.49",
+      "tax_class": "B",
+      "reference_family": "老唐家"
+    },
+    {
+      "name": "500g ARO DOPPELKEKSROLLE 46%",
+      "name_zh": "ARO 双层夹心饼干卷 500g",
+      "qty": 1,
+      "unit": "PG",
+      "unit_price_net": "1.67",
+      "tax_class": "B",
+      "reference_family": "老唐家"
+    },
+    {
+      "name": "10er Eier bunt M Boden",
+      "name_zh": "散养鸡蛋 10个",
+      "qty": 2,
+      "unit": "PG",
+      "unit_price_net": "2.79",
+      "tax_class": "B",
+      "reference_family": "老唐家"
+    },
+    {
+      "name": "4X20g KERRY CHEESTRINGS 40%",
+      "name_zh": "Kerry 奶酪条 4×20g",
+      "qty": 1,
+      "unit": "SP",
+      "unit_price_net": "2.05",
+      "tax_class": "B",
+      "reference_family": "Rio家"
+    },
+    {
+      "name": "4X20g KERRY CHEESTRINGS 40%",
+      "name_zh": "Kerry 奶酪条 4×20g",
+      "qty": 2,
+      "unit": "SP",
+      "unit_price_net": "2.05",
+      "tax_class": "B",
+      "reference_family": "老唐家"
+    },
+    {
+      "name": "2kg ARO MOZZARELLA GER. 45%",
+      "name_zh": "ARO 马苏里拉奶酪刨丝 2kg",
+      "qty": 1,
+      "unit": "PG",
+      "unit_price_net": "13.59",
+      "tax_class": "B",
+      "reference_family": "Rio家"
+    },
+    {
+      "name": "100g MILKANA TOLLE ROLLE",
+      "name_zh": "Milkana 奶酪卷 100g",
+      "qty": 2,
+      "unit": "KB",
+      "unit_price_net": "2.69",
+      "tax_class": "B",
+      "reference_family": "Rio家"
+    },
+    {
+      "name": "5X17g BABYBEL MINI ROLLS 38%",
+      "name_zh": "百贝乐小圆奶酪 5×17g",
+      "qty": 1,
+      "unit": "BT",
+      "unit_price_net": "2.69",
+      "tax_class": "B",
+      "reference_family": "Rio家"
+    },
+    {
+      "name": "MC HAE.OBERKEULE O.H.O.K. #1",
+      "name_zh": "鸡大腿 #1 (2.871kg)",
+      "qty": 2.871,
+      "unit": "KG",
+      "unit_price_net": "6.488",
+      "tax_class": "B",
+      "reference_family": "老唐家"
+    },
+    {
+      "name": "MC HAE.OBERKEULE O.H.O.K. #2",
+      "name_zh": "鸡大腿 #2 (2.845kg)",
+      "qty": 2.845,
+      "unit": "KG",
+      "unit_price_net": "6.491",
+      "tax_class": "B",
+      "reference_family": "Rio家"
+    },
+    {
+      "name": "MC HAE.OBERKEULE O.H.O.K. #3",
+      "name_zh": "鸡大腿 #3 (2.824kg)",
+      "qty": 2.824,
+      "unit": "KG",
+      "unit_price_net": "6.491",
+      "tax_class": "B",
+      "reference_family": "Yuxi家"
+    },
+    {
+      "name": "MC HAE.-UNTERSCHENKEL CA.2,5kg",
+      "name_zh": "鸡小腿 (2.915kg)",
+      "qty": 2.915,
+      "unit": "KG",
+      "unit_price_net": "5.49",
+      "tax_class": "B",
+      "reference_family": "Rio家"
+    },
+    {
+      "name": "R-BUERGERMEISTERSTUECK PAD",
+      "name_zh": "牛臀肉 (2.484kg)",
+      "qty": 2.484,
+      "unit": "KG",
+      "unit_price_net": "14.29",
+      "tax_class": "B",
+      "reference_family": "Rio家"
+    },
+    {
+      "name": "MC QS SCHW.HACKFLEISCH #1",
+      "name_zh": "猪绞肉 #1 (1.506kg)",
+      "qty": 1.506,
+      "unit": "KG",
+      "unit_price_net": "5.79",
+      "tax_class": "B",
+      "reference_family": "Rio家"
+    },
+    {
+      "name": "MC QS SCHW.HACKFLEISCH #2",
+      "name_zh": "猪绞肉 #2 (1.480kg)",
+      "qty": 1.48,
+      "unit": "KG",
+      "unit_price_net": "5.79",
+      "tax_class": "B",
+      "reference_family": "Yuxi家"
+    },
+    {
+      "name": "RINDER-FALSCHES FILET #1",
+      "name_zh": "牛假里脊 #1 (1.952kg)",
+      "qty": 1.952,
+      "unit": "KG",
+      "unit_price_net": "12.291",
+      "tax_class": "B",
+      "reference_family": "Yuxi家"
+    },
+    {
+      "name": "RINDER-FALSCHES FILET #2",
+      "name_zh": "牛假里脊 #2 (1.564kg)",
+      "qty": 1.564,
+      "unit": "KG",
+      "unit_price_net": "12.293",
+      "tax_class": "B",
+      "reference_family": "Yuxi家"
+    },
+    {
+      "name": "RINDER-FALSCHES FILET #3",
+      "name_zh": "牛假里脊 #3 (1.244kg)",
+      "qty": 1.244,
+      "unit": "KG",
+      "unit_price_net": "12.293",
+      "tax_class": "B",
+      "reference_family": "Yuxi家"
+    },
+    {
+      "name": "RINDER-FALSCHES FILET #4",
+      "name_zh": "牛假里脊 #4 (1.806kg)",
+      "qty": 1.806,
+      "unit": "KG",
+      "unit_price_net": "12.288",
+      "tax_class": "B",
+      "reference_family": "Yuxi家"
+    },
+    {
+      "name": "RINDER-FALSCHES FILET #5",
+      "name_zh": "牛假里脊 #5 (1.616kg)",
+      "qty": 1.616,
+      "unit": "KG",
+      "unit_price_net": "12.288",
+      "tax_class": "B",
+      "reference_family": "Yuxi家"
+    },
+    {
+      "name": "RINDER-FALSCHES FILET #6",
+      "name_zh": "牛假里脊 #6 (1.626kg)",
+      "qty": 1.626,
+      "unit": "KG",
+      "unit_price_net": "12.288",
+      "tax_class": "B",
+      "reference_family": "Rio家"
+    },
+    {
+      "name": "RINDER-FALSCHES FILET #7",
+      "name_zh": "牛假里脊 #7 (1.310kg)",
+      "qty": 1.31,
+      "unit": "KG",
+      "unit_price_net": "12.29",
+      "tax_class": "B",
+      "reference_family": "Yuxi家"
+    },
+    {
+      "name": "RINDER-FALSCHES FILET #8",
+      "name_zh": "牛假里脊 #8 (1.856kg)",
+      "qty": 1.856,
+      "unit": "KG",
+      "unit_price_net": "12.288",
+      "tax_class": "B",
+      "reference_family": "Yuxi家"
+    },
+    {
+      "name": "QS SCHW.-BAUCH EG.20/50 #1",
+      "name_zh": "猪五花肉 #1 (4.600kg)",
+      "qty": 4.6,
+      "unit": "KG",
+      "unit_price_net": "4.99",
+      "tax_class": "B",
+      "reference_family": "老唐家"
+    },
+    {
+      "name": "QS SCHW.-BAUCH EG.20/50 #2",
+      "name_zh": "猪五花肉 #2 (5.072kg)",
+      "qty": 5.072,
+      "unit": "KG",
+      "unit_price_net": "4.989",
+      "tax_class": "B",
+      "reference_family": "老唐家"
+    },
+    {
+      "name": "QS SCHW.-BAUCH EG.20/50 #3",
+      "name_zh": "猪五花肉 #3 (4.600kg)",
+      "qty": 4.6,
+      "unit": "KG",
+      "unit_price_net": "4.99",
+      "tax_class": "B",
+      "reference_family": "老唐家"
+    },
+    {
+      "name": "QS SCHW.-BAUCH EG.20/50 #4",
+      "name_zh": "猪五花肉 #4 (4.760kg)",
+      "qty": 4.76,
+      "unit": "KG",
+      "unit_price_net": "4.99",
+      "tax_class": "B",
+      "reference_family": "Rio家"
+    },
+    {
+      "name": "QS SCHW.-VORDEREISBEIN #1",
+      "name_zh": "猪前肘 #1 (0.872kg)",
+      "qty": 0.872,
+      "unit": "KG",
+      "unit_price_net": "2.69",
+      "tax_class": "B",
+      "reference_family": "老唐家"
+    },
+    {
+      "name": "QS SCHW.-VORDEREISBEIN #2",
+      "name_zh": "猪前肘 #2 (0.818kg)",
+      "qty": 0.818,
+      "unit": "KG",
+      "unit_price_net": "2.69",
+      "tax_class": "B",
+      "reference_family": "老唐家"
+    },
+    {
+      "name": "QS SCHW.-VORDEREISBEIN #3",
+      "name_zh": "猪前肘 #3 (0.958kg)",
+      "qty": 0.958,
+      "unit": "KG",
+      "unit_price_net": "2.69",
+      "tax_class": "B",
+      "reference_family": "老唐家"
+    },
+    {
+      "name": "QS SCHW.-VORDEREISBEIN #4(M)",
+      "name_zh": "猪前肘 #4 (1.908kg)",
+      "qty": 1.908,
+      "unit": "KG",
+      "unit_price_net": "2.69",
+      "tax_class": "B",
+      "reference_family": "老唐家"
+    },
+    {
+      "name": "QS SW-LACHSE VAC.(M)",
+      "name_zh": "猪里脊肉VAC. (3.480kg)",
+      "qty": 3.48,
+      "unit": "KG",
+      "unit_price_net": "4.29",
+      "tax_class": "B",
+      "reference_family": "Rio家"
+    },
+    {
+      "name": "QS SCHW.-NUSS OHNE NASE VAC.",
+      "name_zh": "猪腱子肉 (1.400kg)",
+      "qty": 1.4,
+      "unit": "KG",
+      "unit_price_net": "3.49",
+      "tax_class": "B",
+      "reference_family": "老唐家"
+    },
+    {
+      "name": "SW-QS LOIN RIBS #1",
+      "name_zh": "猪排骨 #1 (2.198kg)",
+      "qty": 2.198,
+      "unit": "KG",
+      "unit_price_net": "5.99",
+      "tax_class": "B",
+      "reference_family": "Yuxi家"
+    },
+    {
+      "name": "SW-QS LOIN RIBS #2(M)",
+      "name_zh": "猪排骨 #2 (1.982kg)",
+      "qty": 1.982,
+      "unit": "KG",
+      "unit_price_net": "5.99",
+      "tax_class": "B",
+      "reference_family": "Yuxi家"
+    }
+  ]
+}

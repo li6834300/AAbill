@@ -30,6 +30,10 @@ refactor: <scope>: <整理描述>  # 重构:测试保持绿
 - 权限:Owner 靠 JWT;Participant 靠 share_token 中间件,只能读账单、写 claims。
 - 尾差规则:最大余数法,各家汇总之和必须精确等于发票总额。
 
+## 测试夹具
+
+`packages/core/fixtures/metro-de-2026-05-16.json` 是一张真实 Metro 发票(42 行,含 KG 计重、0.1 分精度单价、A/B 两税类)。core 的测试必须用它做集成级校验:validate() 要能对上发票印刷合计(注意行级四舍五入规则,见 fixture 内 notes)。reference_family 仅作对照,不是 golden 值。
+
 ## 每个功能完成后
 
 1. 在 `docs/tdd-log/` 写一篇短日志:验收标准、先写的测试、AI 输出被人否决/修正的点。
