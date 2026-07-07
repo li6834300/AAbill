@@ -5,17 +5,29 @@ import {
   type Bill,
   type Item,
 } from '@aabill/api-types';
-import { DEFAULT_TAX_RATES, validate } from '@aabill/core';
+import { DEFAULT_TAX_RATES, toMilli, validate } from '@aabill/core';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
+import { z } from 'zod';
+import { createMockParser } from './ai/mock.js';
+import type { ReceiptParser } from './ai/provider.js';
 import type { BillRepo } from './repo.js';
 
 export interface AppDeps {
   repo: BillRepo;
+  parser?: ReceiptParser;
 }
 
+const ParseBodySchema = z.object({
+  imageBase64: z.string().min(1),
+  mimeType: z.string().default('image/jpeg'),
+});
+
+/** 十进制金额字符串 → 整数分(如 '18.63' → 1863) */
+const toCents = (decimal: string) => toMilli(decimal) / 10;
+
 /** 路由薄壳:IO 与 schema 校验在此,金额业务一律调 core。 */
-export function createApp({ repo }: AppDeps) {
+export function createApp({ repo, parser = createMockParser() }: AppDeps) {
   const app = new Hono();
   app.use('*', cors());
 
@@ -146,6 +158,47 @@ export function createApp({ repo }: AppDeps) {
       return c.json({ error: 'family not found' }, 404);
     await repo.save(bill);
     return c.body(null, 204);
+  });
+
+  app.post('/bills/:id/parse', async (c) => {
+    const bill = await loadBill(c.req.param('id'));
+    if (!bill) return c.json({ error: 'bill not found' }, 404);
+    const parsed = ParseBodySchema.safeParse(
+      await c.req.json().catch(() => null),
+    );
+    if (!parsed.success) return c.json({ error: parsed.error.issues }, 400);
+
+    let receipt;
+    try {
+      receipt = await parser.parseReceipt(parsed.data);
+    } catch (err) {
+      return c.json({ error: `识别失败: ${String(err)}` }, 502);
+    }
+
+    // AI 输出的十进制字符串在此边界统一转整数(ADR 0003);
+    // 印刷行总额存 printedLineNetCents,validate 可 0 差额对账。
+    const aiItems: Item[] = receipt.items.map((it) => ({
+      id: crypto.randomUUID(),
+      source: 'ai',
+      name: it.name,
+      nameZh: it.nameZh,
+      qtyMilli: toMilli(it.qty),
+      unit: it.unit,
+      unitPriceMilli: toMilli(it.unitPriceNet),
+      printedLineNetCents: toCents(it.lineNet),
+      taxClass: it.taxClass,
+      isShared: false,
+    }));
+    bill.items = [...bill.items.filter((i) => i.source !== 'ai'), ...aiItems];
+    bill.printedTotals = {
+      netCents: toCents(receipt.totals.net),
+      vatByClass: {
+        A: toCents(receipt.totals.vatA),
+        B: toCents(receipt.totals.vatB),
+      },
+      grossCents: toCents(receipt.totals.gross),
+    };
+    return c.json(await repo.save(bill));
   });
 
   app.get('/bills/:id/validate', async (c) => {

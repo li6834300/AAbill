@@ -67,7 +67,9 @@ describe('openai provider(stub fetch,不发真实请求)', () => {
     const body = JSON.parse(init.body) as {
       model: string;
       response_format: { type: string };
-      messages: Array<{ content: Array<{ type: string; image_url?: { url: string } }> }>;
+      messages: Array<{
+        content: Array<{ type: string; image_url?: { url: string } }>;
+      }>;
     };
     expect(body.model).toBe('gpt-4o');
     expect(body.response_format.type).toBe('json_schema');
@@ -102,7 +104,9 @@ describe('openai provider(stub fetch,不发真实请求)', () => {
 describe('selectParser:按环境选 provider', () => {
   it('无 OPENAI_API_KEY 或显式 mock → mock;有 key → openai', () => {
     expect(selectParser({}).kind).toBe('mock');
-    expect(selectParser({ OPENAI_API_KEY: 'sk-x', AI_PROVIDER: 'mock' }).kind).toBe('mock');
+    expect(
+      selectParser({ OPENAI_API_KEY: 'sk-x', AI_PROVIDER: 'mock' }).kind,
+    ).toBe('mock');
     expect(selectParser({ OPENAI_API_KEY: 'sk-x' }).kind).toBe('openai');
   });
 });
