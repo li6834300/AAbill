@@ -1,5 +1,12 @@
 export { allocateByLargestRemainder } from './allocate.js';
 export { allocateDiscount } from './discount.js';
+export {
+  settle,
+  type Claim,
+  type FamilySettlement,
+  type SettleItem,
+  type SettleResult,
+} from './settle.js';
 export { splitEvenly } from './split.js';
 export {
   itemNetCents,
