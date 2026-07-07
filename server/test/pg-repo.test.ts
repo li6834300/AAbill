@@ -30,6 +30,9 @@ beforeAll(async () => {
   pool = new Pool({
     connectionString: `postgres://postgres:pw@localhost:${PORT}/aabill_test`,
   });
+  // pg 要求给 pool 挂 error 监听:关库时 PG 强杀空闲连接(57P01),
+  // 否则会冒泡成 unhandled error 让测试假失败(pg 官方建议)。
+  pool.on('error', () => {});
   await migrate(pool);
 }, 120_000);
 

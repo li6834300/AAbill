@@ -45,6 +45,23 @@ const stubParser = (receipt: ParsedReceipt = RECEIPT): ReceiptParser => ({
   parseReceipt: async () => receipt,
 });
 
+/** 记录 provider 收到的输入,验证 route 原样透传(含 PDF mimeType) */
+const recordingParser = (): {
+  parser: ReceiptParser;
+  last: () => { fileBase64: string; mimeType: string } | undefined;
+} => {
+  let seen: { fileBase64: string; mimeType: string } | undefined;
+  return {
+    parser: {
+      parseReceipt: async (input) => {
+        seen = input;
+        return RECEIPT;
+      },
+    },
+    last: () => seen,
+  };
+};
+
 const failingParser: ReceiptParser = {
   parseReceipt: async () => {
     throw new Error('上游超时');
@@ -64,11 +81,17 @@ async function appWithBill(parser: ReceiptParser) {
   return { app, id };
 }
 
-const parseReq = (id: string) =>
+const parseReq = (
+  id: string,
+  body: { fileBase64: string; mimeType: string } = {
+    fileBase64: 'aGk=',
+    mimeType: 'image/jpeg',
+  },
+) =>
   new Request(`http://x/bills/${id}/parse`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ imageBase64: 'aGk=', mimeType: 'image/jpeg' }),
+    body: JSON.stringify(body),
   });
 
 describe('POST /bills/:id/parse', () => {
@@ -129,7 +152,29 @@ describe('POST /bills/:id/parse', () => {
     expect(bill.items.filter((i) => i.source === 'manual')).toHaveLength(1);
   });
 
-  it('缺 imageBase64 → 400;provider 抛错 → 502;未知账单 → 404', async () => {
+  it('PDF 上传:mimeType 与内容原样透传给 provider(PRD A1 支持 PDF)', async () => {
+    const { parser, last } = recordingParser();
+    const app = createApp({ repo: createInMemoryRepo(), parser });
+    const { id } = (await (
+      await app.request(
+        new Request('http://x/bills', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ title: 'Metro', taxCountry: 'DE' }),
+        }),
+      )
+    ).json()) as { id: string };
+    const res = await app.request(
+      parseReq(id, { fileBase64: 'JVBERi0x', mimeType: 'application/pdf' }),
+    );
+    expect(res.status).toBe(200);
+    expect(last()).toEqual({
+      fileBase64: 'JVBERi0x',
+      mimeType: 'application/pdf',
+    });
+  });
+
+  it('缺 fileBase64 → 400;不支持的 mimeType → 400;provider 抛错 → 502;未知账单 → 404', async () => {
     const { app, id } = await appWithBill(stubParser());
     const bad = await app.request(
       new Request(`http://x/bills/${id}/parse`, {
@@ -139,6 +184,10 @@ describe('POST /bills/:id/parse', () => {
       }),
     );
     expect(bad.status).toBe(400);
+    const badMime = await app.request(
+      parseReq(id, { fileBase64: 'aGk=', mimeType: 'text/plain' }),
+    );
+    expect(badMime.status).toBe(400);
     expect((await app.request(parseReq('nope'))).status).toBe(404);
 
     const { app: app2, id: id2 } = await appWithBill(failingParser);

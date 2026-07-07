@@ -4,79 +4,119 @@ import { createMockParser } from '../src/ai/mock.js';
 import { createOpenAIParser } from '../src/ai/openai.js';
 import { selectParser } from '../src/ai/provider.js';
 
-// PRD §5.1:AI 调用走 provider 接口;OpenAI 实现(structured outputs 强制 JSON schema),
-// 测试与本地默认用 mock。密钥只在服务端。
+// PRD §5.1 / A1:AI 走 provider 接口,识别图片或 PDF(发票常是 PDF)。
+// OpenAI 用 Responses API(/v1/responses)—— 2025-09 起 chat/completions 不再收文件输入。
+// 图片走 input_image,PDF 走 input_file;structured outputs 强制 JSON schema。密钥只在服务端。
+
+// Responses API 原始返回:output[].content[] 里 type=output_text 的 text 即模型输出
+const responsesReply = (json: string) =>
+  Response.json({
+    output: [
+      {
+        type: 'message',
+        role: 'assistant',
+        content: [{ type: 'output_text', text: json }],
+      },
+    ],
+  });
+
+const receiptJson = JSON.stringify({
+  items: [
+    {
+      name: 'Eier',
+      nameZh: '鸡蛋',
+      qty: '2',
+      unit: 'PG',
+      unitPriceNet: '2.79',
+      lineNet: '5.58',
+      taxClass: 'B',
+    },
+  ],
+  totals: { net: '5.58', vatA: '0.00', vatB: '0.39', gross: '5.97' },
+});
 
 describe('mock provider', () => {
-  it('返回 schema 合法且确定性的识别结果', async () => {
+  it('返回 schema 合法且确定性的识别结果(图片或 PDF 皆可)', async () => {
     const parser = createMockParser();
     const receipt = await parser.parseReceipt({
-      imageBase64: 'aGk=',
-      mimeType: 'image/jpeg',
+      fileBase64: 'aGk=',
+      mimeType: 'application/pdf',
     });
     expect(() => ParsedReceiptSchema.parse(receipt)).not.toThrow();
     expect(receipt.items.length).toBeGreaterThan(0);
     const again = await parser.parseReceipt({
-      imageBase64: 'aGk=',
+      fileBase64: 'aGk=',
       mimeType: 'image/jpeg',
     });
     expect(again).toEqual(receipt);
   });
 });
 
-describe('openai provider(stub fetch,不发真实请求)', () => {
+describe('openai provider — Responses API(stub fetch,不发真实请求)', () => {
   afterEach(() => vi.unstubAllGlobals());
 
-  const receiptJson = JSON.stringify({
-    items: [
-      {
-        name: 'Eier',
-        nameZh: '鸡蛋',
-        qty: '2',
-        unit: 'PG',
-        unitPriceNet: '2.79',
-        lineNet: '5.58',
-        taxClass: 'B',
+  const callBody = (spy: ReturnType<typeof vi.fn>) => {
+    const [url, init] = spy.mock.calls[0] as unknown as [
+      string,
+      { headers: Record<string, string>; body: string },
+    ];
+    return {
+      url,
+      headers: init.headers,
+      body: JSON.parse(init.body) as {
+        model: string;
+        text: { format: { type: string } };
+        input: Array<{
+          role: string;
+          content: Array<{
+            type: string;
+            image_url?: string;
+            file_data?: string;
+            filename?: string;
+          }>;
+        }>;
       },
-    ],
-    totals: { net: '5.58', vatA: '0.00', vatB: '0.39', gross: '5.97' },
-  });
+    };
+  };
 
-  it('带 API key 调 chat/completions,强制 json_schema,解析并校验输出', async () => {
-    const fetchSpy = vi.fn(async () =>
-      Response.json({
-        choices: [{ message: { content: receiptJson } }],
-      }),
-    );
-    vi.stubGlobal('fetch', fetchSpy);
+  it('图片:打到 /v1/responses,input_image + json_schema,解析输出', async () => {
+    const spy = vi.fn(async () => responsesReply(receiptJson));
+    vi.stubGlobal('fetch', spy);
 
     const parser = createOpenAIParser({ apiKey: 'sk-test', model: 'gpt-4o' });
     const receipt = await parser.parseReceipt({
-      imageBase64: 'aGk=',
+      fileBase64: 'aGk=',
       mimeType: 'image/jpeg',
     });
     expect(receipt.items[0]).toMatchObject({ name: 'Eier', lineNet: '5.58' });
 
-    expect(fetchSpy).toHaveBeenCalledOnce();
-    const [url, init] = fetchSpy.mock.calls[0] as unknown as [
-      string,
-      { headers: Record<string, string>; body: string },
-    ];
-    expect(url).toBe('https://api.openai.com/v1/chat/completions');
-    expect(init.headers.authorization).toBe('Bearer sk-test');
-    const body = JSON.parse(init.body) as {
-      model: string;
-      response_format: { type: string };
-      messages: Array<{
-        content: Array<{ type: string; image_url?: { url: string } }>;
-      }>;
-    };
+    const { url, headers, body } = callBody(spy);
+    expect(url).toBe('https://api.openai.com/v1/responses');
+    expect(headers.authorization).toBe('Bearer sk-test');
     expect(body.model).toBe('gpt-4o');
-    expect(body.response_format.type).toBe('json_schema');
-    const imagePart = body.messages
-      .flatMap((m) => m.content)
-      .find((p) => p.type === 'image_url');
-    expect(imagePart?.image_url?.url).toBe('data:image/jpeg;base64,aGk=');
+    expect(body.text.format.type).toBe('json_schema');
+    const parts = body.input.flatMap((m) => m.content);
+    const image = parts.find((p) => p.type === 'input_image');
+    expect(image?.image_url).toBe('data:image/jpeg;base64,aGk=');
+    expect(parts.some((p) => p.type === 'input_file')).toBe(false);
+  });
+
+  it('PDF:同一路径改用 input_file(filename + file_data data URL)', async () => {
+    const spy = vi.fn(async () => responsesReply(receiptJson));
+    vi.stubGlobal('fetch', spy);
+
+    const parser = createOpenAIParser({ apiKey: 'sk-test', model: 'gpt-4o' });
+    await parser.parseReceipt({
+      fileBase64: 'JVBER',
+      mimeType: 'application/pdf',
+    });
+
+    const { body } = callBody(spy);
+    const parts = body.input.flatMap((m) => m.content);
+    const file = parts.find((p) => p.type === 'input_file');
+    expect(file?.file_data).toBe('data:application/pdf;base64,JVBER');
+    expect(file?.filename).toMatch(/\.pdf$/);
+    expect(parts.some((p) => p.type === 'input_image')).toBe(false);
   });
 
   it('上游非 200 → 抛错;输出不合 schema → 抛错', async () => {
@@ -86,17 +126,15 @@ describe('openai provider(stub fetch,不发真实请求)', () => {
     );
     const parser = createOpenAIParser({ apiKey: 'sk-test', model: 'gpt-4o' });
     await expect(
-      parser.parseReceipt({ imageBase64: 'aGk=', mimeType: 'image/jpeg' }),
+      parser.parseReceipt({ fileBase64: 'aGk=', mimeType: 'image/jpeg' }),
     ).rejects.toThrow(/429/);
 
     vi.stubGlobal(
       'fetch',
-      vi.fn(async () =>
-        Response.json({ choices: [{ message: { content: '{"items":[]}' } }] }),
-      ),
+      vi.fn(async () => responsesReply('{"items":[]}')),
     );
     await expect(
-      parser.parseReceipt({ imageBase64: 'aGk=', mimeType: 'image/jpeg' }),
+      parser.parseReceipt({ fileBase64: 'aGk=', mimeType: 'image/jpeg' }),
     ).rejects.toThrow();
   });
 });

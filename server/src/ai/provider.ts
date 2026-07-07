@@ -3,7 +3,9 @@ import { createMockParser } from './mock.js';
 import { createOpenAIParser } from './openai.js';
 
 export interface ParseInput {
-  imageBase64: string;
+  /** 发票文件的 base64(图片或 PDF) */
+  fileBase64: string;
+  /** image/* 或 application/pdf */
   mimeType: string;
 }
 
