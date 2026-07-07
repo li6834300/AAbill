@@ -40,15 +40,34 @@ export const PrintedTotalsSchema = z.object({
   grossCents: z.number().int(),
 });
 
+/** 认领(PRD C2):同一商品可多家按份共享 */
+export const ClaimSchema = z.object({
+  id: z.string(),
+  itemId: z.string(),
+  familyId: z.string(),
+  portion: z.number().int().positive(),
+  updatedAt: z.string(),
+});
+
+/** 认领写入:portion=0 表示取消认领 */
+export const ClaimUpsertSchema = z.object({
+  itemId: z.string(),
+  familyId: z.string(),
+  portion: z.number().int().nonnegative(),
+});
+
 export const BillSchema = z.object({
   id: z.string(),
   title: z.string(),
   taxCountry: TaxCountrySchema,
   status: BillStatusSchema,
   createdAt: z.string(),
+  /** 免登录分享凭证(PRD §5.3):持有者可读账单、写 claims */
+  shareToken: z.string(),
   printedTotals: PrintedTotalsSchema.nullable(),
   items: z.array(ItemSchema),
   families: z.array(FamilySchema),
+  claims: z.array(ClaimSchema),
 });
 
 /** 数量/单价:最多 3 位小数(千分位) */
@@ -84,6 +103,8 @@ export type BillCreate = z.infer<typeof BillCreateSchema>;
 export type ItemInput = z.infer<typeof ItemInputSchema>;
 export type Item = z.infer<typeof ItemSchema>;
 export type Family = z.infer<typeof FamilySchema>;
+export type Claim = z.infer<typeof ClaimSchema>;
+export type ClaimUpsert = z.infer<typeof ClaimUpsertSchema>;
 export type PrintedTotals = z.infer<typeof PrintedTotalsSchema>;
 export type Bill = z.infer<typeof BillSchema>;
 export type ParsedItem = z.infer<typeof ParsedItemSchema>;

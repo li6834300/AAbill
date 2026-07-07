@@ -1,5 +1,6 @@
 import type { Bill } from '@aabill/api-types';
 import { toMilli } from '@aabill/core';
+import * as Clipboard from 'expo-clipboard';
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
@@ -13,8 +14,17 @@ import {
 } from 'react-native';
 import { FamilyChips } from '../../components/FamilyChips';
 import { ItemRow, type ItemPatch } from '../../components/ItemRow';
+import {
+  buildSummaryText,
+  SettlementTable,
+} from '../../components/SettlementTable';
 import { ValidationBanner } from '../../components/ValidationBanner';
-import { api, type ValidateResponse } from '../../lib/api';
+import {
+  api,
+  shareUrl,
+  type SettlementResponse,
+  type ValidateResponse,
+} from '../../lib/api';
 import { centsToEuro } from '../../lib/format';
 
 const euroToCents = (text: string): number | null => {
@@ -31,6 +41,8 @@ export default function BillScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [bill, setBill] = useState<Bill | null>(null);
   const [validation, setValidation] = useState<ValidateResponse | null>(null);
+  const [settlement, setSettlement] = useState<SettlementResponse | null>(null);
+  const [copied, setCopied] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [totalsDraft, setTotalsDraft] = useState({
@@ -46,6 +58,7 @@ export default function BillScreen() {
       const b = await api.getBill(id);
       setBill(b);
       setValidation(await api.validate(id));
+      setSettlement(await api.settlement(id));
       if (b.printedTotals) {
         setTotalsDraft({
           net: centsToEuro(b.printedTotals.netCents),
@@ -125,6 +138,23 @@ export default function BillScreen() {
     );
   }
 
+  const locked = bill.status === 'locked';
+  const claimable = bill.items.filter((i) => !i.isShared);
+  const claimedCount = claimable.filter((i) =>
+    bill.claims.some((cl) => cl.itemId === i.id),
+  ).length;
+  const copy = async (what: 'link' | 'summary') => {
+    const text =
+      what === 'link'
+        ? shareUrl(bill.shareToken)
+        : settlement
+          ? buildSummaryText(bill.title, settlement)
+          : '';
+    await Clipboard.setStringAsync(text);
+    setCopied(what);
+    setTimeout(() => setCopied(null), 2000);
+  };
+
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
       <Text style={styles.title}>
@@ -193,6 +223,47 @@ export default function BillScreen() {
         onAdd={(name) => run('添加家庭…', () => api.addFamily(id!, name))}
         onRemove={(fid) => run('删除家庭…', () => api.removeFamily(id!, fid))}
       />
+
+      <Text style={styles.section}>分享认领(PRD C1)</Text>
+      <Text style={styles.sub} selectable>
+        {shareUrl(bill.shareToken)}
+      </Text>
+      <Pressable style={styles.btn} onPress={() => void copy('link')}>
+        <Text style={styles.btnText}>
+          {copied === 'link' ? '已复制 ✓' : '复制分享链接'}
+        </Text>
+      </Pressable>
+      <Text style={styles.sub}>
+        认领进度:{claimedCount}/{claimable.length}
+        {locked ? ' · 已锁定' : ''}
+      </Text>
+
+      {settlement && (
+        <>
+          <Text style={styles.section}>AA 汇总(PRD D2)</Text>
+          <SettlementTable settlement={settlement} />
+          <Pressable style={styles.btn} onPress={() => void copy('summary')}>
+            <Text style={styles.btnText}>
+              {copied === 'summary' ? '已复制 ✓' : '复制汇总文本'}
+            </Text>
+          </Pressable>
+          {!locked && (
+            <Pressable
+              style={styles.lockBtn}
+              onPress={() => run('锁定中…', () => api.lock(id!))}
+            >
+              <Text style={styles.primaryText}>
+                锁定账单(认领与条目不可再改)
+              </Text>
+            </Pressable>
+          )}
+        </>
+      )}
+      {!settlement && claimable.length > 0 && (
+        <Text style={styles.hint}>
+          全部商品认领完成后,这里会出现 AA 汇总与锁定按钮。
+        </Text>
+      )}
     </ScrollView>
   );
 }
@@ -222,4 +293,12 @@ const styles = StyleSheet.create({
   btnText: { color: '#0a7', fontWeight: '600' },
   sub: { color: '#666', fontSize: 12 },
   error: { color: '#b42318' },
+  hint: { color: '#999', fontSize: 12, marginTop: 8 },
+  lockBtn: {
+    backgroundColor: '#b42318',
+    borderRadius: 8,
+    padding: 14,
+    alignItems: 'center',
+    marginTop: 4,
+  },
 });
