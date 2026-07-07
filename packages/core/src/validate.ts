@@ -1,4 +1,4 @@
-import { lineNetCents, vatCents, type TaxClass, type TaxRates } from './tax.js';
+import { lineNetCents, vatCents, type TaxClass, type TaxRates } from './tax';
 
 export interface BillItem {
   qtyMilli: number;
