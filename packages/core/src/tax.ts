@@ -1,4 +1,4 @@
-import { roundHalfAwayFromZero } from './money.js';
+import { roundHalfAwayFromZero } from './money';
 
 export type TaxClass = 'A' | 'B';
 export type TaxCountry = 'DE' | 'NL';

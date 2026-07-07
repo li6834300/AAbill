@@ -1,4 +1,4 @@
-import { allocateByLargestRemainder } from './allocate.js';
+import { allocateByLargestRemainder } from './allocate';
 
 /** 均摊:totalCents 由 familyCount 个家庭平分,尾差按最大余数法,和精确守恒。 */
 export function splitEvenly(totalCents: number, familyCount: number): number[] {

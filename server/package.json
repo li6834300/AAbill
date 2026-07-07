@@ -6,11 +6,15 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
+    "@aabill/api-types": "^0.0.0",
+    "@aabill/core": "^0.0.0",
     "@hono/node-server": "^1.14.0",
     "hono": "^4.8.0",
-    "tsx": "^4.20.0"
+    "tsx": "^4.20.0",
+    "zod": "^4.4.3"
   }
 }

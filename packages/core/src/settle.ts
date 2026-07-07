@@ -1,10 +1,6 @@
-import { allocateByLargestRemainder } from './allocate.js';
-import { vatCents, type TaxClass, type TaxRates } from './tax.js';
-import {
-  itemNetCents,
-  type BillItem,
-  type ComputedTotals,
-} from './validate.js';
+import { allocateByLargestRemainder } from './allocate';
+import { vatCents, type TaxClass, type TaxRates } from './tax';
+import { itemNetCents, type BillItem, type ComputedTotals } from './validate';
 
 export interface Claim {
   familyId: string;

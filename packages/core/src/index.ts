@@ -1,13 +1,13 @@
-export { allocateByLargestRemainder } from './allocate.js';
-export { allocateDiscount } from './discount.js';
+export { allocateByLargestRemainder } from './allocate';
+export { allocateDiscount } from './discount';
 export {
   settle,
   type Claim,
   type FamilySettlement,
   type SettleItem,
   type SettleResult,
-} from './settle.js';
-export { splitEvenly } from './split.js';
+} from './settle';
+export { splitEvenly } from './split';
 export {
   itemNetCents,
   validate,
@@ -15,8 +15,8 @@ export {
   type ComputedTotals,
   type PrintedTotals,
   type ValidateResult,
-} from './validate.js';
-export { roundHalfAwayFromZero, toMilli } from './money.js';
+} from './validate';
+export { roundHalfAwayFromZero, toMilli } from './money';
 export {
   DEFAULT_TAX_RATES,
   lineNetCents,
@@ -24,4 +24,4 @@ export {
   type TaxClass,
   type TaxCountry,
   type TaxRates,
-} from './tax.js';
+} from './tax';
