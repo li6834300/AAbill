@@ -12,15 +12,21 @@ import {
 
 describe('BillCreateSchema', () => {
   it('接受标题 + 税制国家', () => {
-    expect(BillCreateSchema.parse({ title: 'Metro 2026-05-16', taxCountry: 'DE' })).toEqual({
+    expect(
+      BillCreateSchema.parse({ title: 'Metro 2026-05-16', taxCountry: 'DE' }),
+    ).toEqual({
       title: 'Metro 2026-05-16',
       taxCountry: 'DE',
     });
   });
 
   it('拒绝空标题与未知国家', () => {
-    expect(BillCreateSchema.safeParse({ title: '', taxCountry: 'DE' }).success).toBe(false);
-    expect(BillCreateSchema.safeParse({ title: 'x', taxCountry: 'FR' }).success).toBe(false);
+    expect(
+      BillCreateSchema.safeParse({ title: '', taxCountry: 'DE' }).success,
+    ).toBe(false);
+    expect(
+      BillCreateSchema.safeParse({ title: 'x', taxCountry: 'FR' }).success,
+    ).toBe(false);
   });
 });
 
@@ -44,18 +50,38 @@ describe('ItemInputSchema', () => {
   });
 
   it('拒绝非整数/非正数量与非整数单价', () => {
-    const base = { name: 'x', qtyMilli: 1000, unitPriceMilli: 100, taxClass: 'A' };
-    expect(ItemInputSchema.safeParse({ ...base, qtyMilli: 0 }).success).toBe(false);
-    expect(ItemInputSchema.safeParse({ ...base, qtyMilli: 10.5 }).success).toBe(false);
-    expect(ItemInputSchema.safeParse({ ...base, unitPriceMilli: 1.5 }).success).toBe(false);
+    const base = {
+      name: 'x',
+      qtyMilli: 1000,
+      unitPriceMilli: 100,
+      taxClass: 'A',
+    };
+    expect(ItemInputSchema.safeParse({ ...base, qtyMilli: 0 }).success).toBe(
+      false,
+    );
+    expect(ItemInputSchema.safeParse({ ...base, qtyMilli: 10.5 }).success).toBe(
+      false,
+    );
+    expect(
+      ItemInputSchema.safeParse({ ...base, unitPriceMilli: 1.5 }).success,
+    ).toBe(false);
   });
 
   it('可选 printedLineNetCents 须为整数', () => {
-    const base = { name: 'x', qtyMilli: 1000, unitPriceMilli: 100, taxClass: 'A' };
-    expect(ItemInputSchema.parse({ ...base, printedLineNetCents: 2296 }).printedLineNetCents).toBe(
-      2296,
-    );
-    expect(ItemInputSchema.safeParse({ ...base, printedLineNetCents: 22.96 }).success).toBe(false);
+    const base = {
+      name: 'x',
+      qtyMilli: 1000,
+      unitPriceMilli: 100,
+      taxClass: 'A',
+    };
+    expect(
+      ItemInputSchema.parse({ ...base, printedLineNetCents: 2296 })
+        .printedLineNetCents,
+    ).toBe(2296);
+    expect(
+      ItemInputSchema.safeParse({ ...base, printedLineNetCents: 22.96 })
+        .success,
+    ).toBe(false);
   });
 });
 
@@ -67,7 +93,9 @@ describe('PrintedTotalsSchema', () => {
       grossCents: 55379,
     };
     expect(PrintedTotalsSchema.parse(totals)).toEqual(totals);
-    expect(PrintedTotalsSchema.safeParse({ ...totals, netCents: 517.21 }).success).toBe(false);
+    expect(
+      PrintedTotalsSchema.safeParse({ ...totals, netCents: 517.21 }).success,
+    ).toBe(false);
   });
 });
 
