@@ -35,7 +35,9 @@ describe('allocateByLargestRemainder', () => {
   });
 
   it('负数总额(整单折扣):镜像分配,和精确守恒', () => {
-    expect(allocateByLargestRemainder(-400, [1000, 3000])).toEqual([-100, -300]);
+    expect(allocateByLargestRemainder(-400, [1000, 3000])).toEqual([
+      -100, -300,
+    ]);
     expect(allocateByLargestRemainder(-101, [1, 1])).toEqual([-51, -50]);
   });
 

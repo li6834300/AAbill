@@ -3,7 +3,10 @@
  * 结果之和精确等于 totalCents;余数并列时下标靠前者优先;负数总额镜像处理。
  * 全程整数运算(余数比较用交叉相乘,不引入浮点)。
  */
-export function allocateByLargestRemainder(totalCents: number, weights: number[]): number[] {
+export function allocateByLargestRemainder(
+  totalCents: number,
+  weights: number[],
+): number[] {
   if (weights.length === 0) throw new Error('权重不能为空');
   if (weights.some((w) => w < 0)) throw new Error('权重不能为负');
   const weightSum = weights.reduce((a, b) => a + b, 0);
@@ -14,7 +17,9 @@ export function allocateByLargestRemainder(totalCents: number, weights: number[]
 
   const floors = weights.map((w) => Math.floor((totalCents * w) / weightSum));
   // 余数 = totalCents×w mod weightSum,整数,可直接比大小
-  const remainders = weights.map((w, i) => totalCents * w - (floors[i] ?? 0) * weightSum);
+  const remainders = weights.map(
+    (w, i) => totalCents * w - (floors[i] ?? 0) * weightSum,
+  );
   let leftover = totalCents - floors.reduce((a, b) => a + b, 0);
 
   const byRemainderDesc = weights

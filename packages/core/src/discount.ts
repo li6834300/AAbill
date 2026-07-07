@@ -4,7 +4,10 @@ import { allocateByLargestRemainder } from './allocate.js';
  * 整单折扣按商品净额比例分摊(PRD B4):返回各商品应摊的折扣分,
  * 之和精确等于 discountCents。净额为 0 的商品不分摊。
  */
-export function allocateDiscount(discountCents: number, itemNetsCents: number[]): number[] {
+export function allocateDiscount(
+  discountCents: number,
+  itemNetsCents: number[],
+): number[] {
   if (itemNetsCents.some((net) => net < 0)) {
     throw new Error('分摊基数不能含负净额(折扣行不参与再分摊)');
   }

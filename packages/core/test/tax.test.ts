@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import fixture from '../fixtures/metro-de-2026-05-16.json';
-import { DEFAULT_TAX_RATES, lineNetCents, toMilli, vatCents } from '../src/index.js';
+import {
+  DEFAULT_TAX_RATES,
+  lineNetCents,
+  toMilli,
+  vatCents,
+} from '../src/index.js';
 
 // 金额表示规格:
 // - 金额一律整数分(cent)
@@ -86,7 +91,10 @@ describe('集成:Metro 真实发票 42 行', () => {
     const rates = DEFAULT_TAX_RATES.DE;
     const netByClass = { A: 0, B: 0 };
     for (const item of fixture.items) {
-      const cents = lineNetCents(toMilli(String(item.qty)), toMilli(item.unit_price_net));
+      const cents = lineNetCents(
+        toMilli(String(item.qty)),
+        toMilli(item.unit_price_net),
+      );
       netByClass[item.tax_class as 'A' | 'B'] += cents;
     }
     // 发票印刷值:net 517.21 / vat_a 0.59 / vat_b 35.99 / gross 553.79。
@@ -97,7 +105,10 @@ describe('集成:Metro 真实发票 42 行', () => {
     expect(vatCents(netByClass.A, rates.A)).toBe(59); // 与印刷 vat_a 一致
     expect(vatCents(netByClass.B, rates.B)).toBe(3599); // 与印刷 vat_b 一致
     const gross =
-      netByClass.A + netByClass.B + vatCents(netByClass.A, rates.A) + vatCents(netByClass.B, rates.B);
+      netByClass.A +
+      netByClass.B +
+      vatCents(netByClass.A, rates.A) +
+      vatCents(netByClass.B, rates.B);
     expect(gross).toBe(55378); // 印刷值 55379,承接净额的 -1 分
   });
 });

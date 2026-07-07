@@ -1,6 +1,10 @@
 import { allocateByLargestRemainder } from './allocate.js';
 import { vatCents, type TaxClass, type TaxRates } from './tax.js';
-import { itemNetCents, type BillItem, type ComputedTotals } from './validate.js';
+import {
+  itemNetCents,
+  type BillItem,
+  type ComputedTotals,
+} from './validate.js';
 
 export interface Claim {
   familyId: string;
@@ -41,7 +45,10 @@ export function settle(input: {
   const { items, families, rates } = input;
   if (families.length === 0) throw new Error('家庭列表不能为空');
   const familyIndex = new Map(families.map((f, i) => [f, i]));
-  const netPerFamily = families.map((): Record<TaxClass, number> => ({ A: 0, B: 0 }));
+  const netPerFamily = families.map((): Record<TaxClass, number> => ({
+    A: 0,
+    B: 0,
+  }));
 
   items.forEach((item, idx) => {
     const label = item.name ?? `第 ${idx + 1} 行`;
@@ -60,10 +67,14 @@ export function settle(input: {
       for (const claim of item.claims ?? []) {
         const fi = familyIndex.get(claim.familyId);
         if (fi === undefined) {
-          throw new Error(`商品「${label}」被不存在的家庭认领: ${claim.familyId}`);
+          throw new Error(
+            `商品「${label}」被不存在的家庭认领: ${claim.familyId}`,
+          );
         }
         if (!Number.isInteger(claim.portion) || claim.portion <= 0) {
-          throw new Error(`商品「${label}」份数必须为正整数,收到 ${claim.portion}`);
+          throw new Error(
+            `商品「${label}」份数必须为正整数,收到 ${claim.portion}`,
+          );
         }
         weights[fi] = (weights[fi] ?? 0) + claim.portion;
       }

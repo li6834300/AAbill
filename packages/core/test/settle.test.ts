@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import fixture from '../fixtures/metro-de-2026-05-16.json';
-import { DEFAULT_TAX_RATES, settle, toMilli, type SettleItem } from '../src/index.js';
+import {
+  DEFAULT_TAX_RATES,
+  settle,
+  toMilli,
+  type SettleItem,
+} from '../src/index.js';
 
 // 规格(PRD D2 / §4.5 / §4.7):
 // - 每个商品的净额按认领份数(或均摊=全家庭等份)用最大余数法拆给家庭
@@ -16,7 +21,12 @@ describe('settle:小案例(手算基准)', () => {
     // 鸡蛋 2×2.79=5.58 均摊 → [186,186,186]
     { qtyMilli: 2000, unitPriceMilli: 2790, taxClass: 'B', isShared: true },
     // 铝箔 1.99(A)甲独占
-    { qtyMilli: 1000, unitPriceMilli: 1990, taxClass: 'A', claims: [{ familyId: '甲', portion: 1 }] },
+    {
+      qtyMilli: 1000,
+      unitPriceMilli: 1990,
+      taxClass: 'A',
+      claims: [{ familyId: '甲', portion: 1 }],
+    },
     // 奶酪条 3×2.05=6.15 甲1份/乙2份 → [205,410,0]
     {
       qtyMilli: 3000,
@@ -70,7 +80,9 @@ describe('settle:小案例(手算基准)', () => {
 
   it('均摊尾差:1.00€ 三家分 → 34/33/33,和守恒', () => {
     const result = settle({
-      items: [{ qtyMilli: 1000, unitPriceMilli: 1000, taxClass: 'A', isShared: true }],
+      items: [
+        { qtyMilli: 1000, unitPriceMilli: 1000, taxClass: 'A', isShared: true },
+      ],
       families,
       rates: { A: 0, B: 0 }, // 隔离税额,只看净额拆分
     });
@@ -89,7 +101,9 @@ describe('settle:输入校验', () => {
   });
 
   it('claims 为空数组视同未认领', () => {
-    expect(() => settle({ items: [{ ...base, claims: [] }], families, rates: RATES })).toThrow();
+    expect(() =>
+      settle({ items: [{ ...base, claims: [] }], families, rates: RATES }),
+    ).toThrow();
   });
 
   it('同时标记均摊与认领:语义冲突,拒绝', () => {
@@ -100,19 +114,29 @@ describe('settle:输入校验', () => {
   });
 
   it('认领了不存在的家庭:拒绝', () => {
-    const items: SettleItem[] = [{ ...base, claims: [{ familyId: '路人', portion: 1 }] }];
+    const items: SettleItem[] = [
+      { ...base, claims: [{ familyId: '路人', portion: 1 }] },
+    ];
     expect(() => settle({ items, families, rates: RATES })).toThrow(/路人/);
   });
 
   it('份数必须为正整数', () => {
     for (const portion of [0, -1, 0.5]) {
-      const items: SettleItem[] = [{ ...base, claims: [{ familyId: '甲', portion }] }];
+      const items: SettleItem[] = [
+        { ...base, claims: [{ familyId: '甲', portion }] },
+      ];
       expect(() => settle({ items, families, rates: RATES })).toThrow();
     }
   });
 
   it('家庭列表为空:拒绝', () => {
-    expect(() => settle({ items: [{ ...base, isShared: true }], families: [], rates: RATES })).toThrow();
+    expect(() =>
+      settle({
+        items: [{ ...base, isShared: true }],
+        families: [],
+        rates: RATES,
+      }),
+    ).toThrow();
   });
 });
 

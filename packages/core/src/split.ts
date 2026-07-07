@@ -5,5 +5,8 @@ export function splitEvenly(totalCents: number, familyCount: number): number[] {
   if (!Number.isInteger(familyCount) || familyCount <= 0) {
     throw new Error(`家庭数必须为正整数,收到 ${familyCount}`);
   }
-  return allocateByLargestRemainder(totalCents, Array.from({ length: familyCount }, () => 1));
+  return allocateByLargestRemainder(
+    totalCents,
+    Array.from({ length: familyCount }, () => 1),
+  );
 }

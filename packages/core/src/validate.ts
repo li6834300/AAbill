@@ -25,12 +25,18 @@ export interface ValidateResult {
   ok: boolean;
   computed: ComputedTotals;
   /** 计算值 − 印刷值:负数表示识别结果偏低(疑漏行) */
-  diffs: { netCents: number; vatByClass: Record<TaxClass, number>; grossCents: number };
+  diffs: {
+    netCents: number;
+    vatByClass: Record<TaxClass, number>;
+    grossCents: number;
+  };
 }
 
 /** 行净额:优先采用印刷行总额,否则按 qty×单价 取整推算。 */
 export function itemNetCents(item: BillItem): number {
-  return item.printedLineNetCents ?? lineNetCents(item.qtyMilli, item.unitPriceMilli);
+  return (
+    item.printedLineNetCents ?? lineNetCents(item.qtyMilli, item.unitPriceMilli)
+  );
 }
 
 /** 对账:按行取整重算合计,与发票印刷合计逐项求差(PRD A4)。 */
@@ -51,7 +57,12 @@ export function validate(input: {
   };
   const netCents = netByClass.A + netByClass.B;
   const grossCents = netCents + vatByClass.A + vatByClass.B;
-  const computed: ComputedTotals = { netByClass, netCents, vatByClass, grossCents };
+  const computed: ComputedTotals = {
+    netByClass,
+    netCents,
+    vatByClass,
+    grossCents,
+  };
 
   const diffs = {
     netCents: netCents - printed.netCents,

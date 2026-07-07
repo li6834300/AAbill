@@ -1,5 +1,8 @@
 /** 整数比值取整:四舍五入、远离零。分母须为正。 */
-export function roundHalfAwayFromZero(numerator: number, denominator: number): number {
+export function roundHalfAwayFromZero(
+  numerator: number,
+  denominator: number,
+): number {
   const sign = numerator < 0 ? -1 : 1;
   const n = Math.abs(numerator);
   return sign * Math.floor((n + denominator / 2) / denominator);

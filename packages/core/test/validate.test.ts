@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import fixture from '../fixtures/metro-de-2026-05-16.json';
-import { DEFAULT_TAX_RATES, toMilli, validate, type BillItem } from '../src/index.js';
+import {
+  DEFAULT_TAX_RATES,
+  toMilli,
+  validate,
+  type BillItem,
+} from '../src/index.js';
 
 // 规格(PRD A4 / §4.6):validate() 把「按行取整重算的合计」与「发票印刷合计」对账,
 // 返回精确差额(计算值 − 印刷值),由上层决定是否高亮引导人工排查。
@@ -29,7 +34,11 @@ describe('validate', () => {
       printed: { netCents: 757, vatByClass: { A: 38, B: 39 }, grossCents: 834 },
     });
     expect(result.ok).toBe(true);
-    expect(result.diffs).toEqual({ netCents: 0, vatByClass: { A: 0, B: 0 }, grossCents: 0 });
+    expect(result.diffs).toEqual({
+      netCents: 0,
+      vatByClass: { A: 0, B: 0 },
+      grossCents: 0,
+    });
     expect(result.computed).toEqual({
       netByClass: { A: 199, B: 558 },
       netCents: 757,
@@ -62,7 +71,11 @@ describe('validate', () => {
     const result = validate({
       items: [item],
       rates: DEFAULT_TAX_RATES.DE,
-      printed: { netCents: 2296, vatByClass: { A: 0, B: 161 }, grossCents: 2457 },
+      printed: {
+        netCents: 2296,
+        vatByClass: { A: 0, B: 161 },
+        grossCents: 2457,
+      },
     });
     expect(result.ok).toBe(true);
   });
