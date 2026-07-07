@@ -1,3 +1,4 @@
+import { describe, expect, it } from '@jest/globals';
 import { centsToEuro, milliToDecimal } from '../format';
 
 // UI 层显示格式:整数分/千分位 → 十进制字符串(计算永远在 core,这里只管展示)

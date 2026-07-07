@@ -1,3 +1,4 @@
+import { describe, expect, it } from '@jest/globals';
 import { render, screen } from '@testing-library/react-native';
 import React from 'react';
 import { ValidationBanner } from '../ValidationBanner';
@@ -25,7 +26,11 @@ describe('ValidationBanner', () => {
       <ValidationBanner
         result={{
           ok: false,
-          diffs: { netCents: -558, vatByClass: { A: 0, B: -39 }, grossCents: -597 },
+          diffs: {
+            netCents: -558,
+            vatByClass: { A: 0, B: -39 },
+            grossCents: -597,
+          },
         }}
       />,
     );

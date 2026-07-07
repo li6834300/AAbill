@@ -1,7 +1,7 @@
 {
   "name": "@aabill/mobile",
   "version": "0.0.0",
-  "main": "index.ts",
+  "main": "expo-router/entry",
   "dependencies": {
     "@expo/metro-runtime": "~57.0.3",
     "expo": "~57.0.2",
