@@ -44,7 +44,7 @@ export function settle(input: {
 }): SettleResult {
   const { items, families, rates } = input;
   if (families.length === 0) throw new Error('家庭列表不能为空');
-  const familyIndex = new Map(families.map((f, i) => [f, i]));
+  const familySet = new Set(families);
   const netPerFamily = families.map((): Record<TaxClass, number> => ({
     A: 0,
     B: 0,
@@ -52,38 +52,39 @@ export function settle(input: {
 
   items.forEach((item, idx) => {
     const label = item.name ?? `第 ${idx + 1} 行`;
-    const hasClaims = (item.claims?.length ?? 0) > 0;
-    if (item.isShared && hasClaims) {
+    const claims = item.claims ?? [];
+    if (item.isShared && claims.length > 0) {
       throw new Error(`商品「${label}」同时标记了均摊与认领,语义冲突`);
     }
-    if (!item.isShared && !hasClaims) {
+    if (!item.isShared && claims.length === 0) {
       throw new Error(`商品「${label}」未认领且未标记均摊,无法结算`);
     }
-
-    const weights = families.map(() => 0);
-    if (item.isShared) {
-      weights.fill(1);
-    } else {
-      for (const claim of item.claims ?? []) {
-        const fi = familyIndex.get(claim.familyId);
-        if (fi === undefined) {
-          throw new Error(
-            `商品「${label}」被不存在的家庭认领: ${claim.familyId}`,
-          );
-        }
-        if (!Number.isInteger(claim.portion) || claim.portion <= 0) {
-          throw new Error(
-            `商品「${label}」份数必须为正整数,收到 ${claim.portion}`,
-          );
-        }
-        weights[fi] = (weights[fi] ?? 0) + claim.portion;
+    for (const claim of claims) {
+      if (!familySet.has(claim.familyId)) {
+        throw new Error(
+          `商品「${label}」被不存在的家庭认领: ${claim.familyId}`,
+        );
+      }
+      if (!Number.isInteger(claim.portion) || claim.portion <= 0) {
+        throw new Error(
+          `商品「${label}」份数必须为正整数,收到 ${claim.portion}`,
+        );
       }
     }
 
+    const weights = item.isShared
+      ? families.map(() => 1)
+      : families.map((familyId) =>
+          claims
+            .filter((c) => c.familyId === familyId)
+            .reduce((sum, c) => sum + c.portion, 0),
+        );
+
+    // shares 与 netPerFamily 均按 families 下标对齐,长度一致
     const shares = allocateByLargestRemainder(itemNetCents(item), weights);
-    shares.forEach((share, fi) => {
-      const net = netPerFamily[fi];
-      if (net) net[item.taxClass] += share;
+    netPerFamily.forEach((net, fi) => {
+      /* v8 ignore next -- 下标对齐,?? 回退不可达 */
+      net[item.taxClass] += shares[fi] ?? 0;
     });
   });
 
@@ -96,28 +97,22 @@ export function settle(input: {
     B: vatCents(netByClass.B, rates.B),
   };
   // 分类税额按各家该类净额比例分摊;税额为 0 时无需分摊(也避免全零权重)
-  const vatShares: Record<TaxClass, number[]> = {
-    A:
-      vatByClass.A === 0
-        ? families.map(() => 0)
-        : allocateByLargestRemainder(
-            vatByClass.A,
-            netPerFamily.map((n) => n.A),
-          ),
-    B:
-      vatByClass.B === 0
-        ? families.map(() => 0)
-        : allocateByLargestRemainder(
-            vatByClass.B,
-            netPerFamily.map((n) => n.B),
-          ),
-  };
+  const vatSharesOf = (taxClass: TaxClass): number[] =>
+    vatByClass[taxClass] === 0
+      ? families.map(() => 0)
+      : allocateByLargestRemainder(
+          vatByClass[taxClass],
+          netPerFamily.map((n) => n[taxClass]),
+        );
+  const vatSharesA = vatSharesOf('A');
+  const vatSharesB = vatSharesOf('B');
 
   const familySettlements = families.map((familyId, fi): FamilySettlement => {
+    /* v8 ignore next 4 -- 下标对齐,?? 回退不可达 */
     const net = netPerFamily[fi] ?? { A: 0, B: 0 };
     const vat: Record<TaxClass, number> = {
-      A: vatShares.A[fi] ?? 0,
-      B: vatShares.B[fi] ?? 0,
+      A: vatSharesA[fi] ?? 0,
+      B: vatSharesB[fi] ?? 0,
     };
     const netCents = net.A + net.B;
     const vatTotal = vat.A + vat.B;

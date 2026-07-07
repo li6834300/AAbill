@@ -1,7 +1,7 @@
 /**
  * 把 totalCents 按权重比例拆成整数分,尾差按最大余数法分配。
  * 结果之和精确等于 totalCents;余数并列时下标靠前者优先;负数总额镜像处理。
- * 全程整数运算(余数比较用交叉相乘,不引入浮点)。
+ * 全程整数运算(余数即 totalCents×w mod ΣW,整数可直接比大小,不引入浮点)。
  */
 export function allocateByLargestRemainder(
   totalCents: number,
@@ -15,22 +15,16 @@ export function allocateByLargestRemainder(
     return allocateByLargestRemainder(-totalCents, weights).map((c) => 0 - c);
   }
 
-  const floors = weights.map((w) => Math.floor((totalCents * w) / weightSum));
-  // 余数 = totalCents×w mod weightSum,整数,可直接比大小
-  const remainders = weights.map(
-    (w, i) => totalCents * w - (floors[i] ?? 0) * weightSum,
+  const entries = weights.map((weight, index) => {
+    const floor = Math.floor((totalCents * weight) / weightSum);
+    return { index, floor, remainder: totalCents * weight - floor * weightSum };
+  });
+  const leftover = totalCents - entries.reduce((sum, e) => sum + e.floor, 0);
+  const bonusIndexes = new Set(
+    [...entries]
+      .sort((a, b) => b.remainder - a.remainder || a.index - b.index)
+      .slice(0, leftover)
+      .map((e) => e.index),
   );
-  let leftover = totalCents - floors.reduce((a, b) => a + b, 0);
-
-  const byRemainderDesc = weights
-    .map((_, i) => i)
-    .sort((a, b) => (remainders[b] ?? 0) - (remainders[a] ?? 0) || a - b);
-
-  const result = [...floors];
-  for (const i of byRemainderDesc) {
-    if (leftover === 0) break;
-    result[i] = (result[i] ?? 0) + 1;
-    leftover -= 1;
-  }
-  return result;
+  return entries.map((e) => e.floor + (bonusIndexes.has(e.index) ? 1 : 0));
 }
