@@ -54,9 +54,12 @@ describe('GET /share/:token(Participant 读账单)', () => {
     const { app, bill, item } = await setup();
     const res = await app.request(`http://x/share/${bill.shareToken}`);
     expect(res.status).toBe(200);
-    const view = await json<{ items: Obj[]; families: Obj[]; claims: unknown[]; status: string }>(
-      res,
-    );
+    const view = await json<{
+      items: Obj[];
+      families: Obj[];
+      claims: unknown[];
+      status: string;
+    }>(res);
     expect(view.items[0]!.id).toBe(item.id);
     expect(view.families).toHaveLength(2);
     expect(view.claims).toEqual([]);
@@ -74,32 +77,54 @@ describe('PUT /share/:token/claims(认领)', () => {
     const { app, bill, item, rio } = await setup();
     const put = (portion: number) =>
       app.request(
-        post(`/share/${bill.shareToken}/claims`, { itemId: item.id, familyId: rio.id, portion }, 'PUT'),
+        post(
+          `/share/${bill.shareToken}/claims`,
+          { itemId: item.id, familyId: rio.id, portion },
+          'PUT',
+        ),
       );
 
     let res = await put(1);
     expect(res.status).toBe(200);
-    let { claims } = await json<{ claims: Array<Obj & { portion: number }> }>(res);
+    let { claims } = await json<{ claims: Array<Obj & { portion: number }> }>(
+      res,
+    );
     expect(claims).toHaveLength(1);
-    expect(claims[0]).toMatchObject({ itemId: item.id, familyId: rio.id, portion: 1 });
+    expect(claims[0]).toMatchObject({
+      itemId: item.id,
+      familyId: rio.id,
+      portion: 1,
+    });
 
     res = await put(2);
-    ({ claims } = await json<{ claims: Array<Obj & { portion: number }> }>(res));
+    ({ claims } = await json<{ claims: Array<Obj & { portion: number }> }>(
+      res,
+    ));
     expect(claims).toHaveLength(1);
     expect(claims[0]!.portion).toBe(2);
 
     res = await put(0);
-    ({ claims } = await json<{ claims: Array<Obj & { portion: number }> }>(res));
+    ({ claims } = await json<{ claims: Array<Obj & { portion: number }> }>(
+      res,
+    ));
     expect(claims).toHaveLength(0);
   });
 
   it('同一商品可多家共享(C2)', async () => {
     const { app, bill, item, rio, tang } = await setup();
     await app.request(
-      post(`/share/${bill.shareToken}/claims`, { itemId: item.id, familyId: rio.id, portion: 1 }, 'PUT'),
+      post(
+        `/share/${bill.shareToken}/claims`,
+        { itemId: item.id, familyId: rio.id, portion: 1 },
+        'PUT',
+      ),
     );
     const res = await app.request(
-      post(`/share/${bill.shareToken}/claims`, { itemId: item.id, familyId: tang.id, portion: 1 }, 'PUT'),
+      post(
+        `/share/${bill.shareToken}/claims`,
+        { itemId: item.id, familyId: tang.id, portion: 1 },
+        'PUT',
+      ),
     );
     const { claims } = await json<{ claims: unknown[] }>(res);
     expect(claims).toHaveLength(2);
@@ -107,9 +132,15 @@ describe('PUT /share/:token/claims(认领)', () => {
 
   it('均摊商品不可认领(与 claims 互斥)→ 409', async () => {
     const { app, bill, item, rio } = await setup();
-    await app.request(post(`/bills/${bill.id}/items/${item.id}`, { isShared: true }, 'PATCH'));
+    await app.request(
+      post(`/bills/${bill.id}/items/${item.id}`, { isShared: true }, 'PATCH'),
+    );
     const res = await app.request(
-      post(`/share/${bill.shareToken}/claims`, { itemId: item.id, familyId: rio.id, portion: 1 }, 'PUT'),
+      post(
+        `/share/${bill.shareToken}/claims`,
+        { itemId: item.id, familyId: rio.id, portion: 1 },
+        'PUT',
+      ),
     );
     expect(res.status).toBe(409);
   });
@@ -120,28 +151,44 @@ describe('PUT /share/:token/claims(认领)', () => {
     expect(
       (
         await app.request(
-          post(`/share/${token}/claims`, { itemId: 'nope', familyId: rio.id, portion: 1 }, 'PUT'),
+          post(
+            `/share/${token}/claims`,
+            { itemId: 'nope', familyId: rio.id, portion: 1 },
+            'PUT',
+          ),
         )
       ).status,
     ).toBe(404);
     expect(
       (
         await app.request(
-          post(`/share/${token}/claims`, { itemId: item.id, familyId: 'nope', portion: 1 }, 'PUT'),
+          post(
+            `/share/${token}/claims`,
+            { itemId: item.id, familyId: 'nope', portion: 1 },
+            'PUT',
+          ),
         )
       ).status,
     ).toBe(404);
     expect(
       (
         await app.request(
-          post(`/share/${token}/claims`, { itemId: item.id, familyId: rio.id, portion: 1.5 }, 'PUT'),
+          post(
+            `/share/${token}/claims`,
+            { itemId: item.id, familyId: rio.id, portion: 1.5 },
+            'PUT',
+          ),
         )
       ).status,
     ).toBe(400);
     expect(
       (
         await app.request(
-          post(`/share/wrong/claims`, { itemId: item.id, familyId: rio.id, portion: 1 }, 'PUT'),
+          post(
+            `/share/wrong/claims`,
+            { itemId: item.id, familyId: rio.id, portion: 1 },
+            'PUT',
+          ),
         )
       ).status,
     ).toBe(404);
@@ -153,22 +200,38 @@ describe('owner 编辑与 claims 的一致性', () => {
     const { app, bill, item, rio, tang } = await setup();
     const token = bill.shareToken;
     await app.request(
-      post(`/share/${token}/claims`, { itemId: item.id, familyId: rio.id, portion: 1 }, 'PUT'),
+      post(
+        `/share/${token}/claims`,
+        { itemId: item.id, familyId: rio.id, portion: 1 },
+        'PUT',
+      ),
     );
     await app.request(
-      post(`/share/${token}/claims`, { itemId: item.id, familyId: tang.id, portion: 1 }, 'PUT'),
+      post(
+        `/share/${token}/claims`,
+        { itemId: item.id, familyId: tang.id, portion: 1 },
+        'PUT',
+      ),
     );
 
     await app.request(
-      new Request(`http://x/bills/${bill.id}/families/${rio.id}`, { method: 'DELETE' }),
+      new Request(`http://x/bills/${bill.id}/families/${rio.id}`, {
+        method: 'DELETE',
+      }),
     );
-    let view = await json<{ claims: unknown[] }>(await app.request(`http://x/share/${token}`));
+    let view = await json<{ claims: unknown[] }>(
+      await app.request(`http://x/share/${token}`),
+    );
     expect(view.claims).toHaveLength(1);
 
     await app.request(
-      new Request(`http://x/bills/${bill.id}/items/${item.id}`, { method: 'DELETE' }),
+      new Request(`http://x/bills/${bill.id}/items/${item.id}`, {
+        method: 'DELETE',
+      }),
     );
-    view = await json<{ claims: unknown[] }>(await app.request(`http://x/share/${token}`));
+    view = await json<{ claims: unknown[] }>(
+      await app.request(`http://x/share/${token}`),
+    );
     expect(view.claims).toHaveLength(0);
   });
 });

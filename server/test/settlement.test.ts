@@ -51,7 +51,11 @@ async function setupBill() {
   const bing = await addFam('丙');
   const claim = (itemId: string, familyId: string, portion: number) =>
     app.request(
-      req(`/share/${bill.shareToken}/claims`, { itemId, familyId, portion }, 'PUT'),
+      req(
+        `/share/${bill.shareToken}/claims`,
+        { itemId, familyId, portion },
+        'PUT',
+      ),
     );
   return { app, bill, eggs, folie, cheese, jia, yi, bing, claim };
 }
@@ -76,7 +80,12 @@ describe('GET /bills/:id/settlement', () => {
     const res = await app.request(`http://x/bills/${bill.id}/settlement`);
     expect(res.status).toBe(200);
     const result = await json<{
-      families: Array<{ name: string; netCents: number; vatCents: number; grossCents: number }>;
+      families: Array<{
+        name: string;
+        netCents: number;
+        vatCents: number;
+        grossCents: number;
+      }>;
       totals: { grossCents: number };
     }>(res);
     expect(result.families.map((f) => [f.name, f.grossCents])).toEqual([
@@ -111,32 +120,53 @@ describe('POST /bills/:id/lock', () => {
 
     expect((await claim(folie.id, yi.id, 1)).status).toBe(423);
     expect(
-      (await app.request(req(`/bills/${bill.id}/items/${folie.id}`, { nameZh: 'x' }, 'PATCH')))
+      (
+        await app.request(
+          req(`/bills/${bill.id}/items/${folie.id}`, { nameZh: 'x' }, 'PATCH'),
+        )
+      ).status,
+    ).toBe(423);
+    expect(
+      (
+        await app.request(
+          req(`/bills/${bill.id}/items`, {
+            name: 'x',
+            qtyMilli: 1000,
+            unitPriceMilli: 100,
+            taxClass: 'A',
+          }),
+        )
+      ).status,
+    ).toBe(423);
+    expect(
+      (await app.request(req(`/bills/${bill.id}/families`, { name: '丁' })))
         .status,
     ).toBe(423);
     expect(
-      (await app.request(req(`/bills/${bill.id}/items`, {
-        name: 'x',
-        qtyMilli: 1000,
-        unitPriceMilli: 100,
-        taxClass: 'A',
-      }))).status,
+      (
+        await app.request(
+          req(
+            `/bills/${bill.id}/totals`,
+            { netCents: 1, vatByClass: { A: 0, B: 0 }, grossCents: 1 },
+            'PUT',
+          ),
+        )
+      ).status,
     ).toBe(423);
     expect(
-      (await app.request(req(`/bills/${bill.id}/families`, { name: '丁' }))).status,
-    ).toBe(423);
-    expect(
-      (await app.request(
-        req(`/bills/${bill.id}/totals`, { netCents: 1, vatByClass: { A: 0, B: 0 }, grossCents: 1 }, 'PUT'),
-      )).status,
-    ).toBe(423);
-    expect(
-      (await app.request(
-        req(`/bills/${bill.id}/parse`, { imageBase64: 'aGk=', mimeType: 'image/jpeg' }),
-      )).status,
+      (
+        await app.request(
+          req(`/bills/${bill.id}/parse`, {
+            imageBase64: 'aGk=',
+            mimeType: 'image/jpeg',
+          }),
+        )
+      ).status,
     ).toBe(423);
 
-    expect((await app.request(`http://x/bills/${bill.id}/settlement`)).status).toBe(200);
+    expect(
+      (await app.request(`http://x/bills/${bill.id}/settlement`)).status,
+    ).toBe(200);
   });
 
   it('重复锁定:幂等返回 200', async () => {

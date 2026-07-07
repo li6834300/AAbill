@@ -30,9 +30,7 @@ const toCents = (decimal: string) => toMilli(decimal) / 10;
 /** 未认领且未均摊的商品名(PRD D1:全部认领完成才可锁定/结算) */
 const unclaimedNames = (bill: Bill): string[] =>
   bill.items
-    .filter(
-      (i) => !i.isShared && !bill.claims.some((cl) => cl.itemId === i.id),
-    )
+    .filter((i) => !i.isShared && !bill.claims.some((cl) => cl.itemId === i.id))
     .map((i) => i.name);
 
 const LOCKED_MSG = '账单已锁定,不可再修改';

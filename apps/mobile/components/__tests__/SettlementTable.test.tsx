@@ -7,9 +7,27 @@ import { buildSummaryText, SettlementTable } from '../SettlementTable';
 
 const settlement = {
   families: [
-    { familyId: 'f1', name: '甲', netCents: 590, vatCents: 65, grossCents: 655 },
-    { familyId: 'f2', name: '乙', netCents: 596, vatCents: 42, grossCents: 638 },
-    { familyId: 'f3', name: '丙', netCents: 186, vatCents: 13, grossCents: 199 },
+    {
+      familyId: 'f1',
+      name: '甲',
+      netCents: 590,
+      vatCents: 65,
+      grossCents: 655,
+    },
+    {
+      familyId: 'f2',
+      name: '乙',
+      netCents: 596,
+      vatCents: 42,
+      grossCents: 638,
+    },
+    {
+      familyId: 'f3',
+      name: '丙',
+      netCents: 186,
+      vatCents: 13,
+      grossCents: 199,
+    },
   ],
   totals: { grossCents: 1492 },
 };

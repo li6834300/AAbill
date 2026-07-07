@@ -1,13 +1,7 @@
 import type { Bill } from '@aabill/api-types';
 import { useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
-import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ClaimItemRow } from '../../components/ClaimItemRow';
 import { api } from '../../lib/api';
 
