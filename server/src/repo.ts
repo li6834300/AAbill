@@ -4,6 +4,7 @@ import type { Bill } from '@aabill/api-types';
 export interface BillRepo {
   create(bill: Bill): Promise<Bill>;
   get(id: string): Promise<Bill | undefined>;
+  getByToken(shareToken: string): Promise<Bill | undefined>;
   list(): Promise<Bill[]>;
   save(bill: Bill): Promise<Bill>;
 }
@@ -17,6 +18,9 @@ export function createInMemoryRepo(): BillRepo {
     },
     async get(id) {
       return bills.get(id);
+    },
+    async getByToken(shareToken) {
+      return [...bills.values()].find((b) => b.shareToken === shareToken);
     },
     async list() {
       return [...bills.values()];

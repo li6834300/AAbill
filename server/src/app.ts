@@ -1,5 +1,6 @@
 import {
   BillCreateSchema,
+  ClaimUpsertSchema,
   ItemInputSchema,
   PrintedTotalsSchema,
   type Bill,
@@ -43,9 +44,11 @@ export function createApp({ repo, parser = createMockParser() }: AppDeps) {
       ...parsed.data,
       status: 'draft',
       createdAt: new Date().toISOString(),
+      shareToken: crypto.randomUUID(),
       printedTotals: null,
       items: [],
       families: [],
+      claims: [],
     };
     return c.json(await repo.create(bill), 201);
   });
@@ -116,10 +119,12 @@ export function createApp({ repo, parser = createMockParser() }: AppDeps) {
   app.delete('/bills/:id/items/:itemId', async (c) => {
     const bill = await loadBill(c.req.param('id'));
     if (!bill) return c.json({ error: 'bill not found' }, 404);
+    const itemId = c.req.param('itemId');
     const before = bill.items.length;
-    bill.items = bill.items.filter((i) => i.id !== c.req.param('itemId'));
+    bill.items = bill.items.filter((i) => i.id !== itemId);
     if (bill.items.length === before)
       return c.json({ error: 'item not found' }, 404);
+    bill.claims = bill.claims.filter((cl) => cl.itemId !== itemId);
     await repo.save(bill);
     return c.body(null, 204);
   });
@@ -150,14 +155,55 @@ export function createApp({ repo, parser = createMockParser() }: AppDeps) {
   app.delete('/bills/:id/families/:familyId', async (c) => {
     const bill = await loadBill(c.req.param('id'));
     if (!bill) return c.json({ error: 'bill not found' }, 404);
+    const familyId = c.req.param('familyId');
     const before = bill.families.length;
-    bill.families = bill.families.filter(
-      (f) => f.id !== c.req.param('familyId'),
-    );
+    bill.families = bill.families.filter((f) => f.id !== familyId);
     if (bill.families.length === before)
       return c.json({ error: 'family not found' }, 404);
+    bill.claims = bill.claims.filter((cl) => cl.familyId !== familyId);
     await repo.save(bill);
     return c.body(null, 204);
+  });
+
+  // ---- Participant(免登录,凭 share_token;只能读账单、写 claims)----
+
+  app.get('/share/:token', async (c) => {
+    const bill = await repo.getByToken(c.req.param('token'));
+    if (!bill) return c.json({ error: 'share link 无效' }, 404);
+    return c.json(bill);
+  });
+
+  app.put('/share/:token/claims', async (c) => {
+    const bill = await repo.getByToken(c.req.param('token'));
+    if (!bill) return c.json({ error: 'share link 无效' }, 404);
+    if (bill.status === 'locked')
+      return c.json({ error: '账单已锁定,认领不可再修改' }, 423);
+    const parsed = ClaimUpsertSchema.safeParse(
+      await c.req.json().catch(() => null),
+    );
+    if (!parsed.success) return c.json({ error: parsed.error.issues }, 400);
+    const { itemId, familyId, portion } = parsed.data;
+    const item = bill.items.find((i) => i.id === itemId);
+    if (!item) return c.json({ error: 'item not found' }, 404);
+    if (!bill.families.some((f) => f.id === familyId))
+      return c.json({ error: 'family not found' }, 404);
+    if (item.isShared)
+      return c.json({ error: '均摊商品由全部家庭平分,无需认领' }, 409);
+
+    bill.claims = bill.claims.filter(
+      (cl) => !(cl.itemId === itemId && cl.familyId === familyId),
+    );
+    if (portion > 0) {
+      bill.claims.push({
+        id: crypto.randomUUID(),
+        itemId,
+        familyId,
+        portion,
+        updatedAt: new Date().toISOString(),
+      });
+    }
+    await repo.save(bill);
+    return c.json({ claims: bill.claims });
   });
 
   app.post('/bills/:id/parse', async (c) => {
