@@ -12,7 +12,11 @@ import { selectParser } from '../src/ai/provider.js';
 const responsesReply = (json: string) =>
   Response.json({
     output: [
-      { type: 'message', role: 'assistant', content: [{ type: 'output_text', text: json }] },
+      {
+        type: 'message',
+        role: 'assistant',
+        content: [{ type: 'output_text', text: json }],
+      },
     ],
   });
 
@@ -102,7 +106,10 @@ describe('openai provider — Responses API(stub fetch,不发真实请求)', () 
     vi.stubGlobal('fetch', spy);
 
     const parser = createOpenAIParser({ apiKey: 'sk-test', model: 'gpt-4o' });
-    await parser.parseReceipt({ fileBase64: 'JVBER', mimeType: 'application/pdf' });
+    await parser.parseReceipt({
+      fileBase64: 'JVBER',
+      mimeType: 'application/pdf',
+    });
 
     const { body } = callBody(spy);
     const parts = body.input.flatMap((m) => m.content);
@@ -122,7 +129,10 @@ describe('openai provider — Responses API(stub fetch,不发真实请求)', () 
       parser.parseReceipt({ fileBase64: 'aGk=', mimeType: 'image/jpeg' }),
     ).rejects.toThrow(/429/);
 
-    vi.stubGlobal('fetch', vi.fn(async () => responsesReply('{"items":[]}')));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => responsesReply('{"items":[]}')),
+    );
     await expect(
       parser.parseReceipt({ fileBase64: 'aGk=', mimeType: 'image/jpeg' }),
     ).rejects.toThrow();

@@ -20,8 +20,15 @@ export interface AppDeps {
 }
 
 const ParseBodySchema = z.object({
-  imageBase64: z.string().min(1),
-  mimeType: z.string().default('image/jpeg'),
+  fileBase64: z.string().min(1),
+  // 发票是图片或 PDF(PRD A1);其余类型拒绝
+  mimeType: z
+    .string()
+    .default('image/jpeg')
+    .refine(
+      (m) => m.startsWith('image/') || m === 'application/pdf',
+      '仅支持图片或 PDF',
+    ),
 });
 
 /** 十进制金额字符串 → 整数分(如 '18.63' → 1863) */

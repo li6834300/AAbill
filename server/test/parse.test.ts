@@ -168,7 +168,10 @@ describe('POST /bills/:id/parse', () => {
       parseReq(id, { fileBase64: 'JVBERi0x', mimeType: 'application/pdf' }),
     );
     expect(res.status).toBe(200);
-    expect(last()).toEqual({ fileBase64: 'JVBERi0x', mimeType: 'application/pdf' });
+    expect(last()).toEqual({
+      fileBase64: 'JVBERi0x',
+      mimeType: 'application/pdf',
+    });
   });
 
   it('缺 fileBase64 → 400;不支持的 mimeType → 400;provider 抛错 → 502;未知账单 → 404', async () => {

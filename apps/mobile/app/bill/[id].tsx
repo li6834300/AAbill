@@ -1,7 +1,6 @@
 import type { Bill } from '@aabill/api-types';
 import { toMilli } from '@aabill/core';
 import * as Clipboard from 'expo-clipboard';
-import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
@@ -26,6 +25,7 @@ import {
   type ValidateResponse,
 } from '../../lib/api';
 import { centsToEuro } from '../../lib/format';
+import { pickInvoice } from '../../lib/pick-invoice';
 
 const euroToCents = (text: string): number | null => {
   try {
@@ -91,14 +91,9 @@ export default function BillScreen() {
 
   const pickAndParse = () =>
     run('识别中…', async () => {
-      const picked = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: 'images',
-        base64: true,
-        quality: 0.7,
-      });
-      const asset = picked.assets?.[0];
-      if (picked.canceled || !asset?.base64) return;
-      await api.parse(id!, asset.base64, asset.mimeType ?? 'image/jpeg');
+      const picked = await pickInvoice();
+      if (!picked) return;
+      await api.parse(id!, picked.base64, picked.mimeType);
     });
 
   const saveTotals = () =>
@@ -171,7 +166,7 @@ export default function BillScreen() {
         <Text style={styles.primaryText}>
           {bill.items.some((i) => i.source === 'ai')
             ? '重新识别发票(覆盖 AI 条目)'
-            : '上传发票识别'}
+            : '上传发票识别(图片或 PDF)'}
         </Text>
       </Pressable>
 

@@ -68,8 +68,8 @@ export const api = {
   createBill: (body: { title: string; taxCountry: 'DE' | 'NL' }) =>
     req<Bill>('/bills', json(body)),
   getBill: (id: string) => req<Bill>(`/bills/${id}`),
-  parse: (id: string, imageBase64: string, mimeType: string) =>
-    req<Bill>(`/bills/${id}/parse`, json({ imageBase64, mimeType })),
+  parse: (id: string, fileBase64: string, mimeType: string) =>
+    req<Bill>(`/bills/${id}/parse`, json({ fileBase64, mimeType })),
   putTotals: (id: string, totals: PrintedTotals) =>
     req<Bill>(`/bills/${id}/totals`, {
       method: 'PUT',
