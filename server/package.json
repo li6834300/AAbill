@@ -14,7 +14,12 @@
     "@aabill/core": "^0.0.0",
     "@hono/node-server": "^1.14.0",
     "hono": "^4.8.0",
+    "pg": "^8.22.0",
     "tsx": "^4.20.0",
     "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.20.0",
+    "embedded-postgres": "^18.4.0-beta.17"
   }
 }
