@@ -4,6 +4,7 @@ import * as Clipboard from 'expo-clipboard';
 import { useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
+  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -169,6 +170,14 @@ export default function BillScreen() {
             : '上传发票识别(图片或 PDF)'}
         </Text>
       </Pressable>
+      {bill.invoiceUrl && (
+        <Text
+          style={styles.link}
+          onPress={() => Linking.openURL(bill.invoiceUrl!)}
+        >
+          查看原始发票 ↗
+        </Text>
+      )}
 
       <ValidationBanner result={validation} />
 
@@ -287,6 +296,7 @@ const styles = StyleSheet.create({
   btn: { padding: 10, alignItems: 'center' },
   btnText: { color: '#0a7', fontWeight: '600' },
   sub: { color: '#666', fontSize: 12 },
+  link: { color: '#0a7', fontWeight: '600', paddingVertical: 4 },
   error: { color: '#b42318' },
   hint: { color: '#999', fontSize: 12, marginTop: 8 },
   lockBtn: {

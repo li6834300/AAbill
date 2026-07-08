@@ -20,12 +20,14 @@ import {
   type IdentityVerifier,
 } from './auth/verifier.js';
 import type { BillRepo } from './repo.js';
+import { createNullStore, type FileStore } from './storage/file-store.js';
 
 export interface AppDeps {
   repo: BillRepo;
   parser?: ReceiptParser;
   verifier?: IdentityVerifier;
   jwtSecret?: string;
+  fileStore?: FileStore;
 }
 
 // Owner 路由把已鉴权用户挂在 context 上
@@ -60,6 +62,7 @@ export function createApp({
   parser = createMockParser(),
   verifier = createUnconfiguredVerifier(),
   jwtSecret = 'dev-insecure-secret',
+  fileStore = createNullStore(),
 }: AppDeps) {
   const app = new Hono<Env>();
   app.use('*', cors());
@@ -119,6 +122,7 @@ export function createApp({
       status: 'draft',
       createdAt: new Date().toISOString(),
       shareToken: crypto.randomUUID(),
+      invoiceUrl: null,
       printedTotals: null,
       items: [],
       families: [],
@@ -297,6 +301,14 @@ export function createApp({
       receipt = await parser.parseReceipt(parsed.data);
     } catch (err) {
       return c.json({ error: `识别失败: ${String(err)}` }, 502);
+    }
+
+    // 存原始发票供回看(PRD §5.4)。存储失败不阻断识别 —— 存图是次要功能。
+    try {
+      const url = await fileStore.save(parsed.data);
+      if (url) bill.invoiceUrl = url;
+    } catch (err) {
+      console.warn('发票存储失败(继续识别):', String(err));
     }
 
     // AI 输出的十进制字符串在此边界统一转整数(ADR 0003);

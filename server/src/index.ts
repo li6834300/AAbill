@@ -6,10 +6,12 @@ import { createApp } from './app.js';
 import { migrate } from './db/migrate.js';
 import { createPostgresRepo } from './db/pg-repo.js';
 import { createInMemoryRepo, type BillRepo } from './repo.js';
+import { selectFileStore } from './storage/file-store.js';
 
 const port = Number(process.env.PORT ?? 3000);
 const { kind, parser } = selectParser(process.env);
 const verifier = selectVerifier(process.env);
+const { kind: storeKind, store: fileStore } = selectFileStore(process.env);
 
 const jwtSecret = process.env.JWT_SECRET;
 if (!jwtSecret) {
@@ -35,6 +37,7 @@ const app = createApp({
   repo,
   parser,
   verifier,
+  fileStore,
   ...(jwtSecret ? { jwtSecret } : {}),
 });
 const authKind =
@@ -43,6 +46,6 @@ const authKind =
 serve({ fetch: app.fetch, port }, (info) => {
   console.log(
     `AAbill server listening on :${info.port}` +
-      `(AI: ${kind} / DB: ${repoKind} / Auth: ${authKind})`,
+      `(AI: ${kind} / DB: ${repoKind} / Auth: ${authKind} / Store: ${storeKind})`,
   );
 });

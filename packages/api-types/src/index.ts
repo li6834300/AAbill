@@ -76,6 +76,8 @@ export const BillSchema = z.object({
   createdAt: z.string(),
   /** 免登录分享凭证(PRD §5.3):持有者可读账单、写 claims */
   shareToken: z.string(),
+  /** 原始发票文件 URL(Cloudinary);未上传/未配置存储时为 null */
+  invoiceUrl: z.string().nullable(),
   printedTotals: PrintedTotalsSchema.nullable(),
   items: z.array(ItemSchema),
   families: z.array(FamilySchema),
