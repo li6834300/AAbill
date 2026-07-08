@@ -91,10 +91,28 @@ export default function BillScreen() {
   };
 
   const pickAndParse = () =>
-    run('识别中…', async () => {
+    run('识别中(多页发票可能要 1 分钟)…', async () => {
       const picked = await pickInvoice();
       if (!picked) return;
-      await api.parse(id!, picked.base64, picked.mimeType);
+      // 记录识别前的 AI 条目,用于判断结果是否已回填
+      const beforeAiCount = (bill?.items ?? []).filter(
+        (i) => i.source === 'ai',
+      ).length;
+      const hasNewAiItems = async () => {
+        const b = await api.getBill(id!);
+        const ai = b.items.filter((i) => i.source === 'ai');
+        return ai.length > 0 && ai.length !== beforeAiCount;
+      };
+      try {
+        await api.parse(id!, picked.base64, picked.mimeType);
+      } catch {
+        // Heroku 30s 网关超时:识别很可能仍在后台完成 → 轮询等结果,别直接报错
+        for (let i = 0; i < 15; i++) {
+          await new Promise((r) => setTimeout(r, 4000));
+          if (await hasNewAiItems()) return;
+        }
+        throw new Error('识别超时,请稍后刷新看看,或重试');
+      }
     });
 
   const saveTotals = () =>

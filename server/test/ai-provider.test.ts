@@ -65,6 +65,7 @@ describe('openai provider — Responses API(stub fetch,不发真实请求)', () 
       headers: init.headers,
       body: JSON.parse(init.body) as {
         model: string;
+        max_output_tokens: number;
         text: { format: { type: string } };
         input: Array<{
           role: string;
@@ -94,6 +95,7 @@ describe('openai provider — Responses API(stub fetch,不发真实请求)', () 
     expect(url).toBe('https://api.openai.com/v1/responses');
     expect(headers.authorization).toBe('Bearer sk-test');
     expect(body.model).toBe('gpt-4o');
+    expect(body.max_output_tokens).toBeGreaterThanOrEqual(8000);
     expect(body.text.format.type).toBe('json_schema');
     const parts = body.input.flatMap((m) => m.content);
     const image = parts.find((p) => p.type === 'input_image');
