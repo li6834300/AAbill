@@ -9,22 +9,73 @@ import {
   View,
 } from 'react-native';
 import { api, type BillSummary } from '../lib/api';
+import { clearToken, getToken } from '../lib/auth';
 
-/** PRD E1(简版):账单列表 + 新建。 */
+/** PRD E1(简版):账单列表 + 新建。未登录先走登录。 */
 export default function BillListScreen() {
   const router = useRouter();
   const [bills, setBills] = useState<BillSummary[]>([]);
   const [title, setTitle] = useState('');
   const [taxCountry, setTaxCountry] = useState<'DE' | 'NL'>('DE');
   const [error, setError] = useState<string | null>(null);
+  const [authed, setAuthed] = useState(() => getToken() !== null);
+  const [email, setEmail] = useState('');
 
   const load = useCallback(() => {
+    if (!getToken()) {
+      setAuthed(false);
+      return;
+    }
     api
       .listBills()
       .then(({ bills }) => setBills(bills))
       .catch((e) => setError(String(e)));
   }, []);
   useFocusEffect(load);
+
+  const doLogin = async () => {
+    if (!email.trim()) return;
+    try {
+      await api.login(email.trim());
+      setEmail('');
+      setError(null);
+      setAuthed(true);
+      load();
+    } catch (e) {
+      setError(String(e));
+    }
+  };
+
+  const logout = () => {
+    clearToken();
+    setAuthed(false);
+    setBills([]);
+  };
+
+  if (!authed) {
+    return (
+      <View style={styles.screen}>
+        <Text style={styles.loginTitle}>登录 AAbill</Text>
+        <Text style={styles.sub}>
+          开发登录:输入邮箱即可(生产将用 Google/Apple 登录)
+        </Text>
+        {error && <Text style={styles.error}>{error}</Text>}
+        <View style={styles.createRow}>
+          <TextInput
+            style={styles.input}
+            value={email}
+            onChangeText={setEmail}
+            placeholder="you@example.com"
+            autoCapitalize="none"
+            keyboardType="email-address"
+          />
+          <Pressable style={styles.btn} onPress={doLogin}>
+            <Text style={styles.btnText}>登录</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
 
   const create = async () => {
     if (!title.trim()) return;
@@ -39,6 +90,12 @@ export default function BillListScreen() {
 
   return (
     <View style={styles.screen}>
+      <View style={styles.headerRow}>
+        <Text style={styles.sub}>我的账单</Text>
+        <Pressable onPress={logout}>
+          <Text style={styles.linkText}>退出登录</Text>
+        </Pressable>
+      </View>
       {error && <Text style={styles.error}>{error}</Text>}
       <View style={styles.createRow}>
         <TextInput
@@ -85,6 +142,13 @@ export default function BillListScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, padding: 16, gap: 12, backgroundColor: '#fff' },
+  loginTitle: { fontSize: 22, fontWeight: '700' },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  linkText: { color: '#0a7', fontWeight: '600' },
   createRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   input: {
     flex: 1,

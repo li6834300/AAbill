@@ -1,18 +1,24 @@
 import type {
+  AuthUser,
   Bill,
   Claim,
   ClaimUpsert,
   ItemInput,
   PrintedTotals,
 } from '@aabill/api-types';
+import { authHeader, setToken } from './auth';
 
-// Owner 端 API client:M4 之前无鉴权(部署前接 JWT)。
 const BASE = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000';
 
+/** owner 请求:自动带 JWT。/share 与 /auth 走各自的 fetch,不加鉴权头。 */
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
-    headers: { 'content-type': 'application/json' },
     ...init,
+    headers: {
+      'content-type': 'application/json',
+      ...authHeader(),
+      ...init?.headers,
+    },
   });
   if (!res.ok) {
     throw new Error(`API ${res.status}: ${await res.text()}`);
@@ -64,6 +70,19 @@ export interface ValidateResponse {
 }
 
 export const api = {
+  /** 开发登录:邮箱换 JWT(server ALLOW_DEV_LOGIN=1)。生产走 Google/Apple。 */
+  login: async (email: string): Promise<AuthUser> => {
+    const res = await fetch(`${BASE}/auth/session`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ provider: 'dev', idToken: email }),
+    });
+    if (!res.ok) throw new Error(`登录失败 ${res.status}`);
+    const data = (await res.json()) as { token: string; user: AuthUser };
+    setToken(data.token);
+    return data.user;
+  },
+
   listBills: () => req<{ bills: BillSummary[] }>('/bills'),
   createBill: (body: { title: string; taxCountry: 'DE' | 'NL' }) =>
     req<Bill>('/bills', json(body)),
@@ -100,7 +119,9 @@ export const api = {
   lock: (id: string) => req<Bill>(`/bills/${id}/lock`, { method: 'POST' }),
   /** 未认领完时返回 null(server 409) */
   settlement: async (id: string): Promise<SettlementResponse | null> => {
-    const res = await fetch(`${BASE}/bills/${id}/settlement`);
+    const res = await fetch(`${BASE}/bills/${id}/settlement`, {
+      headers: authHeader(),
+    });
     if (res.status === 409) return null;
     if (!res.ok) throw new Error(`API ${res.status}`);
     return (await res.json()) as SettlementResponse;
@@ -108,7 +129,9 @@ export const api = {
 
   /** 未录合计时返回 null(server 409) */
   validate: async (id: string): Promise<ValidateResponse | null> => {
-    const res = await fetch(`${BASE}/bills/${id}/validate`);
+    const res = await fetch(`${BASE}/bills/${id}/validate`, {
+      headers: authHeader(),
+    });
     if (res.status === 409) return null;
     if (!res.ok) throw new Error(`API ${res.status}`);
     return (await res.json()) as ValidateResponse;
