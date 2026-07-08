@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { createApp } from '../src/app.js';
-import { createInMemoryRepo } from '../src/repo.js';
+import { issueToken } from '../src/auth/jwt.js';
+import { TEST_SECRET, testApp } from './helpers.js';
+
+const TOKEN = await issueToken(
+  { sub: 'alice', email: 'alice@example.com' },
+  TEST_SECRET,
+);
+const bearer = { authorization: `Bearer ${TOKEN}` };
 
 // PRD C1-C4 / §5.3:分享链接 = /b/{share_token},token 不可猜测;
 // 持 token 只能:读账单、写 claims。锁定后 claims 拒绝(423)。
@@ -9,15 +15,18 @@ import { createInMemoryRepo } from '../src/repo.js';
 const json = <T>(res: Response) => res.json() as Promise<T>;
 type Obj = Record<string, unknown> & { id: string };
 
+// 归属 Owner 的写操作带 JWT;/share/* 是 Participant 路由,带不带 header 都不校验(此处统一带,无妨)。
 const post = (path: string, body: unknown, method = 'POST') =>
   new Request(`http://x${path}`, {
     method,
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', ...bearer },
     body: JSON.stringify(body),
   });
+const del = (path: string) =>
+  new Request(`http://x${path}`, { method: 'DELETE', headers: bearer });
 
 async function setup() {
-  const app = createApp({ repo: createInMemoryRepo() });
+  const app = testApp();
   const bill = await json<Obj & { shareToken: string }>(
     await app.request(post('/bills', { title: 'Metro', taxCountry: 'DE' })),
   );
@@ -214,21 +223,13 @@ describe('owner 编辑与 claims 的一致性', () => {
       ),
     );
 
-    await app.request(
-      new Request(`http://x/bills/${bill.id}/families/${rio.id}`, {
-        method: 'DELETE',
-      }),
-    );
+    await app.request(del(`/bills/${bill.id}/families/${rio.id}`));
     let view = await json<{ claims: unknown[] }>(
       await app.request(`http://x/share/${token}`),
     );
     expect(view.claims).toHaveLength(1);
 
-    await app.request(
-      new Request(`http://x/bills/${bill.id}/items/${item.id}`, {
-        method: 'DELETE',
-      }),
-    );
+    await app.request(del(`/bills/${bill.id}/items/${item.id}`));
     view = await json<{ claims: unknown[] }>(
       await app.request(`http://x/share/${token}`),
     );

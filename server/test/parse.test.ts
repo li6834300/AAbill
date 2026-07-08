@@ -1,8 +1,14 @@
 import type { ParsedReceipt } from '@aabill/api-types';
 import { describe, expect, it } from 'vitest';
 import type { ReceiptParser } from '../src/ai/provider.js';
-import { createApp } from '../src/app.js';
-import { createInMemoryRepo } from '../src/repo.js';
+import { issueToken } from '../src/auth/jwt.js';
+import { TEST_SECRET, testApp } from './helpers.js';
+
+const TOKEN = await issueToken(
+  { sub: 'alice', email: 'alice@example.com' },
+  TEST_SECRET,
+);
+const bearer = { authorization: `Bearer ${TOKEN}` };
 
 // PRD A1/§5.4:POST /bills/:id/parse → provider 识别 → 条目写入(source=ai)+ 印刷合计入库。
 // AI 输出是十进制字符串,server 边界转成整数分/千分位;印刷行总额(Wert)存 printedLineNetCents,
@@ -68,15 +74,16 @@ const failingParser: ReceiptParser = {
   },
 };
 
+const createBillReq = () =>
+  new Request('http://x/bills', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', ...bearer },
+    body: JSON.stringify({ title: 'Metro', taxCountry: 'DE' }),
+  });
+
 async function appWithBill(parser: ReceiptParser) {
-  const app = createApp({ repo: createInMemoryRepo(), parser });
-  const res = await app.request(
-    new Request('http://x/bills', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ title: 'Metro', taxCountry: 'DE' }),
-    }),
-  );
+  const app = testApp({ parser });
+  const res = await app.request(createBillReq());
   const { id } = (await res.json()) as { id: string };
   return { app, id };
 }
@@ -90,7 +97,7 @@ const parseReq = (
 ) =>
   new Request(`http://x/bills/${id}/parse`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', ...bearer },
     body: JSON.stringify(body),
   });
 
@@ -124,7 +131,9 @@ describe('POST /bills/:id/parse', () => {
   it('识别后 validate 用印刷行总额 0 差额对账', async () => {
     const { app, id } = await appWithBill(stubParser());
     await app.request(parseReq(id));
-    const res = await app.request(`http://x/bills/${id}/validate`);
+    const res = await app.request(
+      new Request(`http://x/bills/${id}/validate`, { headers: bearer }),
+    );
     const result = (await res.json()) as { ok: boolean };
     expect(result.ok).toBe(true);
   });
@@ -134,7 +143,7 @@ describe('POST /bills/:id/parse', () => {
     await app.request(
       new Request(`http://x/bills/${id}/items`, {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: { 'content-type': 'application/json', ...bearer },
         body: JSON.stringify({
           name: '手输行',
           qtyMilli: 1000,
@@ -145,7 +154,11 @@ describe('POST /bills/:id/parse', () => {
     );
     await app.request(parseReq(id));
     await app.request(parseReq(id));
-    const bill = (await (await app.request(`http://x/bills/${id}`)).json()) as {
+    const bill = (await (
+      await app.request(
+        new Request(`http://x/bills/${id}`, { headers: bearer }),
+      )
+    ).json()) as {
       items: Array<{ source: string }>;
     };
     expect(bill.items.filter((i) => i.source === 'ai')).toHaveLength(3);
@@ -154,16 +167,10 @@ describe('POST /bills/:id/parse', () => {
 
   it('PDF 上传:mimeType 与内容原样透传给 provider(PRD A1 支持 PDF)', async () => {
     const { parser, last } = recordingParser();
-    const app = createApp({ repo: createInMemoryRepo(), parser });
-    const { id } = (await (
-      await app.request(
-        new Request('http://x/bills', {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ title: 'Metro', taxCountry: 'DE' }),
-        }),
-      )
-    ).json()) as { id: string };
+    const app = testApp({ parser });
+    const { id } = (await (await app.request(createBillReq())).json()) as {
+      id: string;
+    };
     const res = await app.request(
       parseReq(id, { fileBase64: 'JVBERi0x', mimeType: 'application/pdf' }),
     );
@@ -179,7 +186,7 @@ describe('POST /bills/:id/parse', () => {
     const bad = await app.request(
       new Request(`http://x/bills/${id}/parse`, {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: { 'content-type': 'application/json', ...bearer },
         body: JSON.stringify({}),
       }),
     );

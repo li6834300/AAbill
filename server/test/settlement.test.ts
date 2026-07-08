@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { createApp } from '../src/app.js';
-import { createInMemoryRepo } from '../src/repo.js';
+import { issueToken } from '../src/auth/jwt.js';
+import { TEST_SECRET, testApp } from './helpers.js';
+
+const TOKEN = await issueToken(
+  { sub: 'alice', email: 'alice@example.com' },
+  TEST_SECRET,
+);
+const bearer = { authorization: `Bearer ${TOKEN}` };
 
 // PRD D1/D2 / M5:
 // - 全部认领完成才可锁定;锁定后 Participant 与 Owner 的修改一律拒绝(423)
@@ -13,13 +19,15 @@ type Obj = Record<string, unknown> & { id: string };
 const req = (path: string, body?: unknown, method = 'POST') =>
   new Request(`http://x${path}`, {
     method,
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', ...bearer },
     ...(body !== undefined && { body: JSON.stringify(body) }),
   });
+const getReq = (path: string) =>
+  new Request(`http://x${path}`, { headers: bearer });
 
 /** 组一张与 core settle 手算基准一致的账单:鸡蛋均摊 + 铝箔甲独占 + 奶酪条甲1/乙2 */
 async function setupBill() {
-  const app = createApp({ repo: createInMemoryRepo() });
+  const app = testApp();
   const bill = await json<Obj & { shareToken: string }>(
     await app.request(req('/bills', { title: 'Metro', taxCountry: 'DE' })),
   );
@@ -61,9 +69,20 @@ async function setupBill() {
 }
 
 describe('GET /bills/:id/settlement', () => {
+  it('复现 bug:空账单(无家庭/条目)→ 409 而非 500', async () => {
+    // 详情页每次加载都拉 settlement;新建账单尚无家庭,core.settle 会抛"家庭列表不能为空"。
+    // 应作为"尚未就绪"的 409 处理,不能 500。
+    const app = testApp();
+    const bill = await json<{ id: string }>(
+      await app.request(req('/bills', { title: '空单', taxCountry: 'DE' })),
+    );
+    const res = await app.request(getReq(`/bills/${bill.id}/settlement`));
+    expect(res.status).toBe(409);
+  });
+
   it('有未认领商品:409 并指明商品名', async () => {
     const { app, bill } = await setupBill();
-    const res = await app.request(`http://x/bills/${bill.id}/settlement`);
+    const res = await app.request(getReq(`/bills/${bill.id}/settlement`));
     expect(res.status).toBe(409);
     const { error } = await json<{ error: string }>(res);
     expect(error).toMatch(/Folie/);
@@ -77,7 +96,7 @@ describe('GET /bills/:id/settlement', () => {
     await claim(cheese.id, jia.id, 1);
     await claim(cheese.id, yi.id, 2);
 
-    const res = await app.request(`http://x/bills/${bill.id}/settlement`);
+    const res = await app.request(getReq(`/bills/${bill.id}/settlement`));
     expect(res.status).toBe(200);
     const result = await json<{
       families: Array<{
@@ -165,7 +184,7 @@ describe('POST /bills/:id/lock', () => {
     ).toBe(423);
 
     expect(
-      (await app.request(`http://x/bills/${bill.id}/settlement`)).status,
+      (await app.request(getReq(`/bills/${bill.id}/settlement`))).status,
     ).toBe(200);
   });
 

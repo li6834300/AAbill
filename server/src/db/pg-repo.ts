@@ -7,6 +7,7 @@ import type { BillRepo } from '../repo.js';
 
 interface BillRow {
   id: string;
+  owner_id: string;
   title: string;
   status: Bill['status'];
   tax_country: Bill['taxCountry'];
@@ -71,6 +72,7 @@ export function createPostgresRepo(pool: Pool): BillRepo {
     const children = await loadChildren(row.id);
     return {
       id: row.id,
+      ownerId: row.owner_id,
       title: row.title,
       taxCountry: row.tax_country,
       status: row.status,
@@ -137,9 +139,9 @@ export function createPostgresRepo(pool: Pool): BillRepo {
       await client.query('begin');
       await client.query(
         `insert into bills
-           (id, title, status, tax_country, share_token, invoice_net_cents,
+           (id, owner_id, title, status, tax_country, share_token, invoice_net_cents,
             invoice_vat_a_cents, invoice_vat_b_cents, invoice_gross_cents, created_at)
-         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
          on conflict (id) do update set
            title = excluded.title,
            status = excluded.status,
@@ -149,6 +151,7 @@ export function createPostgresRepo(pool: Pool): BillRepo {
            invoice_gross_cents = excluded.invoice_gross_cents`,
         [
           bill.id,
+          bill.ownerId,
           bill.title,
           bill.status,
           bill.taxCountry,

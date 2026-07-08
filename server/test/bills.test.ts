@@ -1,25 +1,36 @@
 import { describe, expect, it } from 'vitest';
-import { createApp } from '../src/app.js';
-import { createInMemoryRepo } from '../src/repo.js';
+import { issueToken } from '../src/auth/jwt.js';
+import { TEST_SECRET, testApp } from './helpers.js';
 
 // server 是薄壳(CLAUDE.md):路由做 IO 与校验,业务调 core。
 // 仓储走接口注入,测试用内存实现(Postgres 接线是部署期任务,见 ADR 0004)。
+// Owner 鉴权接入后,/bills 路由需 JWT —— 下面的请求构造器统一带上。
 
-const post = (path: string, body: unknown, init?: RequestInit) =>
+const TOKEN = await issueToken(
+  { sub: 'alice', email: 'alice@example.com' },
+  TEST_SECRET,
+);
+const bearer = { authorization: `Bearer ${TOKEN}` };
+
+const post = (path: string, body: unknown) =>
   new Request(`http://x${path}`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', ...bearer },
     body: JSON.stringify(body),
-    ...init,
   });
+const send = (path: string, method: string, body?: unknown) =>
+  new Request(`http://x${path}`, {
+    method,
+    headers: { 'content-type': 'application/json', ...bearer },
+    ...(body !== undefined && { body: JSON.stringify(body) }),
+  });
+const get = (path: string) =>
+  new Request(`http://x${path}`, { headers: bearer });
 
-/** 响应体断言辅助:测试里已知形状,统一收窄 */
 const json = <T>(res: Response) => res.json() as Promise<T>;
 type Obj = Record<string, unknown> & { id: string };
 
-function newApp() {
-  return createApp({ repo: createInMemoryRepo() });
-}
+const newApp = () => testApp();
 
 async function createBill(app: ReturnType<typeof newApp>) {
   const res = await app.request(
@@ -37,6 +48,7 @@ describe('POST /bills + GET', () => {
     expect(res.status).toBe(201);
     const bill = await json<Obj>(res);
     expect(bill).toMatchObject({
+      ownerId: 'alice',
       title: 'Metro 5-16',
       taxCountry: 'DE',
       status: 'draft',
@@ -45,7 +57,7 @@ describe('POST /bills + GET', () => {
       families: [],
     });
 
-    const got = await app.request(`http://x/bills/${bill.id}`);
+    const got = await app.request(get(`/bills/${bill.id}`));
     expect(got.status).toBe(200);
     expect(await got.json()).toEqual(bill);
   });
@@ -54,7 +66,7 @@ describe('POST /bills + GET', () => {
     const app = newApp();
     await createBill(app);
     await createBill(app);
-    const res = await app.request('http://x/bills');
+    const res = await app.request(get('/bills'));
     const { bills } = await json<{ bills: Obj[] }>(res);
     expect(bills).toHaveLength(2);
     expect(bills[0]).toMatchObject({ title: 'Metro 5-16', status: 'draft' });
@@ -66,7 +78,7 @@ describe('POST /bills + GET', () => {
       (await app.request(post('/bills', { title: '', taxCountry: 'DE' })))
         .status,
     ).toBe(400);
-    expect((await app.request('http://x/bills/nope')).status).toBe(404);
+    expect((await app.request(get('/bills/nope'))).status).toBe(404);
   });
 });
 
@@ -109,14 +121,10 @@ describe('条目校对编辑(PRD A2)', () => {
     ).json()) as Obj;
 
     const res = await app.request(
-      new Request(`http://x/bills/${id}/items/${item.id}`, {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          nameZh: '鸡蛋',
-          isShared: true,
-          unitPriceMilli: 2690,
-        }),
+      send(`/bills/${id}/items/${item.id}`, 'PATCH', {
+        nameZh: '鸡蛋',
+        isShared: true,
+        unitPriceMilli: 2690,
       }),
     );
     expect(res.status).toBe(200);
@@ -142,23 +150,17 @@ describe('条目校对编辑(PRD A2)', () => {
       )
     ).json()) as Obj;
     expect(
-      (
-        await app.request(`http://x/bills/${id}/items/${item.id}`, {
-          method: 'DELETE',
-        })
-      ).status,
+      (await app.request(send(`/bills/${id}/items/${item.id}`, 'DELETE')))
+        .status,
     ).toBe(204);
-    const bill = (await (await app.request(`http://x/bills/${id}`)).json()) as {
+    const bill = (await (await app.request(get(`/bills/${id}`))).json()) as {
       items: Obj[];
       families: Obj[];
     };
     expect(bill.items).toHaveLength(0);
     expect(
-      (
-        await app.request(`http://x/bills/${id}/items/${item.id}`, {
-          method: 'DELETE',
-        })
-      ).status,
+      (await app.request(send(`/bills/${id}/items/${item.id}`, 'DELETE')))
+        .status,
     ).toBe(404);
   });
 });
@@ -177,13 +179,10 @@ describe('家庭管理(PRD B2:真实名字)', () => {
     expect(tang).toMatchObject({ name: '老唐家', sortOrder: 1 });
 
     expect(
-      (
-        await app.request(`http://x/bills/${id}/families/${rio.id}`, {
-          method: 'DELETE',
-        })
-      ).status,
+      (await app.request(send(`/bills/${id}/families/${rio.id}`, 'DELETE')))
+        .status,
     ).toBe(204);
-    const bill = (await (await app.request(`http://x/bills/${id}`)).json()) as {
+    const bill = (await (await app.request(get(`/bills/${id}`))).json()) as {
       items: Obj[];
       families: Obj[];
     };
@@ -221,19 +220,15 @@ describe('印刷合计与 validate(PRD A4)', () => {
       }),
     );
     const put = await app.request(
-      new Request(`http://x/bills/${id}/totals`, {
-        method: 'PUT',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          netCents: 757,
-          vatByClass: { A: 38, B: 39 },
-          grossCents: 834,
-        }),
+      send(`/bills/${id}/totals`, 'PUT', {
+        netCents: 757,
+        vatByClass: { A: 38, B: 39 },
+        grossCents: 834,
       }),
     );
     expect(put.status).toBe(200);
 
-    const res = await app.request(`http://x/bills/${id}/validate`);
+    const res = await app.request(get(`/bills/${id}/validate`));
     expect(res.status).toBe(200);
     const result = await json<{ ok: boolean; diffs: unknown }>(res);
     expect(result.ok).toBe(true);
@@ -247,8 +242,6 @@ describe('印刷合计与 validate(PRD A4)', () => {
   it('尚未录入印刷合计:validate 返回 409', async () => {
     const app = newApp();
     const { id } = await createBill(app);
-    expect((await app.request(`http://x/bills/${id}/validate`)).status).toBe(
-      409,
-    );
+    expect((await app.request(get(`/bills/${id}/validate`))).status).toBe(409);
   });
 });

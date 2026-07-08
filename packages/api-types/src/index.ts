@@ -56,8 +56,20 @@ export const ClaimUpsertSchema = z.object({
   portion: z.number().int().nonnegative(),
 });
 
+export const AuthUserSchema = z.object({
+  sub: z.string(),
+  email: z.string(),
+});
+
+export const SessionRequestSchema = z.object({
+  provider: z.string().min(1),
+  idToken: z.string().min(1),
+});
+
 export const BillSchema = z.object({
   id: z.string(),
+  /** 归属 Owner(JWT sub);Participant 无归属 */
+  ownerId: z.string(),
   title: z.string(),
   taxCountry: TaxCountrySchema,
   status: BillStatusSchema,
@@ -105,6 +117,8 @@ export type Item = z.infer<typeof ItemSchema>;
 export type Family = z.infer<typeof FamilySchema>;
 export type Claim = z.infer<typeof ClaimSchema>;
 export type ClaimUpsert = z.infer<typeof ClaimUpsertSchema>;
+export type AuthUser = z.infer<typeof AuthUserSchema>;
+export type SessionRequest = z.infer<typeof SessionRequestSchema>;
 export type PrintedTotals = z.infer<typeof PrintedTotalsSchema>;
 export type Bill = z.infer<typeof BillSchema>;
 export type ParsedItem = z.infer<typeof ParsedItemSchema>;
