@@ -3,21 +3,33 @@ import {
   ClaimUpsertSchema,
   ItemInputSchema,
   PrintedTotalsSchema,
+  SessionRequestSchema,
+  type AuthUser,
   type Bill,
   type Item,
 } from '@aabill/api-types';
 import { DEFAULT_TAX_RATES, settle, toMilli, validate } from '@aabill/core';
-import { Hono } from 'hono';
+import { Hono, type MiddlewareHandler } from 'hono';
 import { cors } from 'hono/cors';
 import { z } from 'zod';
 import { createMockParser } from './ai/mock.js';
 import type { ReceiptParser } from './ai/provider.js';
+import { issueToken, verifyToken } from './auth/jwt.js';
+import {
+  createUnconfiguredVerifier,
+  type IdentityVerifier,
+} from './auth/verifier.js';
 import type { BillRepo } from './repo.js';
 
 export interface AppDeps {
   repo: BillRepo;
   parser?: ReceiptParser;
+  verifier?: IdentityVerifier;
+  jwtSecret?: string;
 }
+
+// Owner 路由把已鉴权用户挂在 context 上
+type Env = { Variables: { user: AuthUser } };
 
 const ParseBodySchema = z.object({
   fileBase64: z.string().min(1),
@@ -43,11 +55,47 @@ const unclaimedNames = (bill: Bill): string[] =>
 const LOCKED_MSG = '账单已锁定,不可再修改';
 
 /** 路由薄壳:IO 与 schema 校验在此,金额业务一律调 core。 */
-export function createApp({ repo, parser = createMockParser() }: AppDeps) {
-  const app = new Hono();
+export function createApp({
+  repo,
+  parser = createMockParser(),
+  verifier = createUnconfiguredVerifier(),
+  jwtSecret = 'dev-insecure-secret',
+}: AppDeps) {
+  const app = new Hono<Env>();
   app.use('*', cors());
 
   app.get('/health', (c) => c.json({ status: 'ok' }));
+
+  // OAuth id token → 应用 JWT(PRD §5.3)。校验交给 verifier(Google/Apple/dev)。
+  app.post('/auth/session', async (c) => {
+    const parsed = SessionRequestSchema.safeParse(
+      await c.req.json().catch(() => null),
+    );
+    if (!parsed.success) return c.json({ error: parsed.error.issues }, 400);
+    let identity;
+    try {
+      identity = await verifier.verify(
+        parsed.data.provider,
+        parsed.data.idToken,
+      );
+    } catch {
+      return c.json({ error: '登录校验失败' }, 401);
+    }
+    const user: AuthUser = { sub: identity.sub, email: identity.email };
+    return c.json({ token: await issueToken(user, jwtSecret), user });
+  });
+
+  // Owner 鉴权:/bills 全部路由需有效 JWT(Participant 走 /share/*,不经此)
+  const requireOwner: MiddlewareHandler<Env> = async (c, next) => {
+    const header = c.req.header('authorization') ?? '';
+    const token = header.startsWith('Bearer ') ? header.slice(7) : '';
+    const user = token ? await verifyToken(token, jwtSecret) : null;
+    if (!user) return c.json({ error: '需要登录' }, 401);
+    c.set('user', user);
+    await next();
+  };
+  app.use('/bills', requireOwner);
+  app.use('/bills/*', requireOwner);
 
   // 锁定守卫(PRD D1):锁定后 Owner 的一切修改拒绝;/lock 除外(幂等)
   app.use('/bills/:id/*', async (c, next) => {
@@ -66,6 +114,7 @@ export function createApp({ repo, parser = createMockParser() }: AppDeps) {
     if (!parsed.success) return c.json({ error: parsed.error.issues }, 400);
     const bill: Bill = {
       id: crypto.randomUUID(),
+      ownerId: c.get('user').sub,
       ...parsed.data,
       status: 'draft',
       createdAt: new Date().toISOString(),
@@ -79,28 +128,32 @@ export function createApp({ repo, parser = createMockParser() }: AppDeps) {
   });
 
   app.get('/bills', async (c) => {
-    const bills = (await repo.list()).map(
-      ({ id, title, taxCountry, status, createdAt }) => ({
+    const ownerId = c.get('user').sub;
+    const bills = (await repo.list())
+      .filter((b) => b.ownerId === ownerId)
+      .map(({ id, title, taxCountry, status, createdAt }) => ({
         id,
         title,
         taxCountry,
         status,
         createdAt,
-      }),
-    );
+      }));
     return c.json({ bills });
   });
 
-  /** 取账单,不存在时向 handler 报 undefined */
-  const loadBill = (id: string) => repo.get(id);
+  /** 取自己的账单;不存在或不属于当前 owner 都当 undefined(不泄露存在性) */
+  const loadBill = async (c: { get: (k: 'user') => AuthUser }, id: string) => {
+    const bill = await repo.get(id);
+    return bill && bill.ownerId === c.get('user').sub ? bill : undefined;
+  };
 
   app.get('/bills/:id', async (c) => {
-    const bill = await loadBill(c.req.param('id'));
+    const bill = await loadBill(c, c.req.param('id'));
     return bill ? c.json(bill) : c.json({ error: 'bill not found' }, 404);
   });
 
   app.put('/bills/:id/totals', async (c) => {
-    const bill = await loadBill(c.req.param('id'));
+    const bill = await loadBill(c, c.req.param('id'));
     if (!bill) return c.json({ error: 'bill not found' }, 404);
     const parsed = PrintedTotalsSchema.safeParse(
       await c.req.json().catch(() => null),
@@ -111,7 +164,7 @@ export function createApp({ repo, parser = createMockParser() }: AppDeps) {
   });
 
   app.post('/bills/:id/items', async (c) => {
-    const bill = await loadBill(c.req.param('id'));
+    const bill = await loadBill(c, c.req.param('id'));
     if (!bill) return c.json({ error: 'bill not found' }, 404);
     const parsed = ItemInputSchema.safeParse(
       await c.req.json().catch(() => null),
@@ -128,7 +181,7 @@ export function createApp({ repo, parser = createMockParser() }: AppDeps) {
   });
 
   app.patch('/bills/:id/items/:itemId', async (c) => {
-    const bill = await loadBill(c.req.param('id'));
+    const bill = await loadBill(c, c.req.param('id'));
     if (!bill) return c.json({ error: 'bill not found' }, 404);
     const item = bill.items.find((i) => i.id === c.req.param('itemId'));
     if (!item) return c.json({ error: 'item not found' }, 404);
@@ -142,7 +195,7 @@ export function createApp({ repo, parser = createMockParser() }: AppDeps) {
   });
 
   app.delete('/bills/:id/items/:itemId', async (c) => {
-    const bill = await loadBill(c.req.param('id'));
+    const bill = await loadBill(c, c.req.param('id'));
     if (!bill) return c.json({ error: 'bill not found' }, 404);
     const itemId = c.req.param('itemId');
     const before = bill.items.length;
@@ -155,7 +208,7 @@ export function createApp({ repo, parser = createMockParser() }: AppDeps) {
   });
 
   app.post('/bills/:id/families', async (c) => {
-    const bill = await loadBill(c.req.param('id'));
+    const bill = await loadBill(c, c.req.param('id'));
     if (!bill) return c.json({ error: 'bill not found' }, 404);
     const parsed = (await c.req.json().catch(() => null)) as {
       name?: unknown;
@@ -178,7 +231,7 @@ export function createApp({ repo, parser = createMockParser() }: AppDeps) {
   });
 
   app.delete('/bills/:id/families/:familyId', async (c) => {
-    const bill = await loadBill(c.req.param('id'));
+    const bill = await loadBill(c, c.req.param('id'));
     if (!bill) return c.json({ error: 'bill not found' }, 404);
     const familyId = c.req.param('familyId');
     const before = bill.families.length;
@@ -232,7 +285,7 @@ export function createApp({ repo, parser = createMockParser() }: AppDeps) {
   });
 
   app.post('/bills/:id/parse', async (c) => {
-    const bill = await loadBill(c.req.param('id'));
+    const bill = await loadBill(c, c.req.param('id'));
     if (!bill) return c.json({ error: 'bill not found' }, 404);
     const parsed = ParseBodySchema.safeParse(
       await c.req.json().catch(() => null),
@@ -273,7 +326,7 @@ export function createApp({ repo, parser = createMockParser() }: AppDeps) {
   });
 
   app.post('/bills/:id/lock', async (c) => {
-    const bill = await loadBill(c.req.param('id'));
+    const bill = await loadBill(c, c.req.param('id'));
     if (!bill) return c.json({ error: 'bill not found' }, 404);
     const unclaimed = unclaimedNames(bill);
     if (unclaimed.length > 0) {
@@ -287,7 +340,7 @@ export function createApp({ repo, parser = createMockParser() }: AppDeps) {
   });
 
   app.get('/bills/:id/settlement', async (c) => {
-    const bill = await loadBill(c.req.param('id'));
+    const bill = await loadBill(c, c.req.param('id'));
     if (!bill) return c.json({ error: 'bill not found' }, 404);
     const unclaimed = unclaimedNames(bill);
     if (unclaimed.length > 0) {
@@ -327,7 +380,7 @@ export function createApp({ repo, parser = createMockParser() }: AppDeps) {
   });
 
   app.get('/bills/:id/validate', async (c) => {
-    const bill = await loadBill(c.req.param('id'));
+    const bill = await loadBill(c, c.req.param('id'));
     if (!bill) return c.json({ error: 'bill not found' }, 404);
     if (!bill.printedTotals)
       return c.json({ error: '尚未录入发票印刷合计' }, 409);

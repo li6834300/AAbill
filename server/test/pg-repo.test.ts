@@ -5,9 +5,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Pool } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { createApp } from '../src/app.js';
 import { migrate } from '../src/db/migrate.js';
 import { createPostgresRepo } from '../src/db/pg-repo.js';
+import { ownerToken, testApp } from './helpers.js';
 
 // 部署期任务第一项(ADR 0004):Postgres 仓储替换内存实现。
 // 测试用 embedded-postgres(进程级 PG,本地与 CI 同一套,无需 Docker/系统安装)。
@@ -43,6 +43,7 @@ afterAll(async () => {
 
 const sampleBill = (): Bill => ({
   id: crypto.randomUUID(),
+  ownerId: 'owner-1',
   title: 'Metro 05-16',
   taxCountry: 'DE',
   status: 'draft',
@@ -149,11 +150,13 @@ describe('PostgresBillRepo', () => {
 
 describe('路由全流程走 Postgres 仓储', () => {
   it('建单→加条目/家庭→认领→锁定→结算', async () => {
-    const app = createApp({ repo: createPostgresRepo(pool) });
+    const app = testApp({ repo: createPostgresRepo(pool) });
+    const token = await ownerToken(app);
+    const bearer = { authorization: `Bearer ${token}` };
     const post = (path: string, body: unknown, method = 'POST') =>
       new Request(`http://x${path}`, {
         method,
-        headers: { 'content-type': 'application/json' },
+        headers: { 'content-type': 'application/json', ...bearer },
         body: JSON.stringify(body),
       });
     const j = <T>(r: Response) => r.json() as Promise<T>;
@@ -188,7 +191,13 @@ describe('路由全流程走 Postgres 仓储', () => {
     const settlement = await j<{
       families: Array<{ name: string; grossCents: number }>;
       totals: { grossCents: number };
-    }>(await app.request(`http://x/bills/${bill.id}/settlement`));
+    }>(
+      await app.request(
+        new Request(`http://x/bills/${bill.id}/settlement`, {
+          headers: bearer,
+        }),
+      ),
+    );
     // 1.99 净 + 19% = 0.38 税 → 2.37
     expect(settlement.families).toEqual([
       expect.objectContaining({ name: '甲', grossCents: 237 }),

@@ -136,13 +136,19 @@ describe('Owner 路由需要 JWT', () => {
     const bob = await login(app, 'tok-bob');
     const bill = await j<Obj>(
       await app.request(
-        post('/bills', { title: 'A 的', taxCountry: 'DE' }, bearer(alice.token)),
+        post(
+          '/bills',
+          { title: 'A 的', taxCountry: 'DE' },
+          bearer(alice.token),
+        ),
       ),
     );
     expect(
       (
         await app.request(
-          new Request(`http://x/bills/${bill.id}`, { headers: bearer(bob.token) }),
+          new Request(`http://x/bills/${bill.id}`, {
+            headers: bearer(bob.token),
+          }),
         )
       ).status,
     ).toBe(404);
