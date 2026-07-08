@@ -24,7 +24,8 @@ export function selectParser(env: Record<string, string | undefined>): {
       kind: 'openai',
       parser: createOpenAIParser({
         apiKey: env.OPENAI_API_KEY,
-        model: env.OPENAI_MODEL ?? 'gpt-4o',
+        // gpt-4.1 对多页发票的完整提取远好于 gpt-4o(见 tdd-log 010)
+        model: env.OPENAI_MODEL?.trim() || 'gpt-4.1',
       }),
     };
   }
