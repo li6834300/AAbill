@@ -94,14 +94,14 @@ export default function BillScreen() {
     run('识别中(多页发票可能要 1 分钟)…', async () => {
       const picked = await pickInvoice();
       if (!picked) return;
-      // 记录识别前的 AI 条目,用于判断结果是否已回填
-      const beforeAiCount = (bill?.items ?? []).filter(
-        (i) => i.source === 'ai',
-      ).length;
+      // 记录识别前的 AI 条目 id;每次识别都生成新 id,靠"出现新 id"判断结果已回填
+      // (重新识别时条目数可能不变,故不能用数量判断)
+      const beforeAiIds = new Set(
+        (bill?.items ?? []).filter((i) => i.source === 'ai').map((i) => i.id),
+      );
       const hasNewAiItems = async () => {
         const b = await api.getBill(id!);
-        const ai = b.items.filter((i) => i.source === 'ai');
-        return ai.length > 0 && ai.length !== beforeAiCount;
+        return b.items.some((i) => i.source === 'ai' && !beforeAiIds.has(i.id));
       };
       try {
         await api.parse(id!, picked.base64, picked.mimeType);
