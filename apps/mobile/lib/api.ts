@@ -69,19 +69,28 @@ export interface ValidateResponse {
   };
 }
 
+/** OAuth id token(dev 邮箱 / Google credential)换本站 JWT,存起来。 */
+async function exchangeSession(
+  provider: string,
+  idToken: string,
+): Promise<AuthUser> {
+  const res = await fetch(`${BASE}/auth/session`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ provider, idToken }),
+  });
+  if (!res.ok) throw new Error(`登录失败 ${res.status}`);
+  const data = (await res.json()) as { token: string; user: AuthUser };
+  setToken(data.token);
+  return data.user;
+}
+
 export const api = {
-  /** 开发登录:邮箱换 JWT(server ALLOW_DEV_LOGIN=1)。生产走 Google/Apple。 */
-  login: async (email: string): Promise<AuthUser> => {
-    const res = await fetch(`${BASE}/auth/session`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ provider: 'dev', idToken: email }),
-    });
-    if (!res.ok) throw new Error(`登录失败 ${res.status}`);
-    const data = (await res.json()) as { token: string; user: AuthUser };
-    setToken(data.token);
-    return data.user;
-  },
+  /** 开发登录:邮箱换 JWT(server ALLOW_DEV_LOGIN=1)。 */
+  login: (email: string) => exchangeSession('dev', email),
+
+  /** Google 登录:把 Google id token 换成本站 JWT。 */
+  loginWithGoogle: (idToken: string) => exchangeSession('google', idToken),
 
   listBills: () => req<{ bills: BillSummary[] }>('/bills'),
   createBill: (body: { title: string; taxCountry: 'DE' | 'NL' }) =>
