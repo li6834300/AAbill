@@ -12,6 +12,7 @@ interface BillRow {
   status: Bill['status'];
   tax_country: Bill['taxCountry'];
   share_token: string;
+  invoice_url: string | null;
   invoice_net_cents: number | null;
   invoice_vat_a_cents: number | null;
   invoice_vat_b_cents: number | null;
@@ -78,6 +79,7 @@ export function createPostgresRepo(pool: Pool): BillRepo {
       status: row.status,
       createdAt: row.created_at.toISOString(),
       shareToken: row.share_token,
+      invoiceUrl: row.invoice_url,
       printedTotals:
         row.invoice_gross_cents === null
           ? null
@@ -139,12 +141,14 @@ export function createPostgresRepo(pool: Pool): BillRepo {
       await client.query('begin');
       await client.query(
         `insert into bills
-           (id, owner_id, title, status, tax_country, share_token, invoice_net_cents,
-            invoice_vat_a_cents, invoice_vat_b_cents, invoice_gross_cents, created_at)
-         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+           (id, owner_id, title, status, tax_country, share_token, invoice_url,
+            invoice_net_cents, invoice_vat_a_cents, invoice_vat_b_cents,
+            invoice_gross_cents, created_at)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
          on conflict (id) do update set
            title = excluded.title,
            status = excluded.status,
+           invoice_url = excluded.invoice_url,
            invoice_net_cents = excluded.invoice_net_cents,
            invoice_vat_a_cents = excluded.invoice_vat_a_cents,
            invoice_vat_b_cents = excluded.invoice_vat_b_cents,
@@ -156,6 +160,7 @@ export function createPostgresRepo(pool: Pool): BillRepo {
           bill.status,
           bill.taxCountry,
           bill.shareToken,
+          bill.invoiceUrl,
           bill.printedTotals?.netCents ?? null,
           bill.printedTotals?.vatByClass.A ?? null,
           bill.printedTotals?.vatByClass.B ?? null,

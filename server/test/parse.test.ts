@@ -165,6 +165,52 @@ describe('POST /bills/:id/parse', () => {
     expect(bill.items.filter((i) => i.source === 'manual')).toHaveLength(1);
   });
 
+  it('存储已配置:识别时上传原图,invoiceUrl 记 Cloudinary URL', async () => {
+    const app = testApp({
+      parser: stubParser(),
+      fileStore: { save: async () => 'https://res.cloudinary.com/x/inv.pdf' },
+    });
+    const { id } = (await (await app.request(createBillReq())).json()) as {
+      id: string;
+    };
+    const bill = (await (await app.request(parseReq(id))).json()) as {
+      invoiceUrl: string | null;
+    };
+    expect(bill.invoiceUrl).toBe('https://res.cloudinary.com/x/inv.pdf');
+  });
+
+  it('存储未配置(null store):正常识别,invoiceUrl 保持 null', async () => {
+    const { app, id } = await appWithBill(stubParser());
+    const bill = (await (await app.request(parseReq(id))).json()) as {
+      invoiceUrl: string | null;
+      items: unknown[];
+    };
+    expect(bill.invoiceUrl).toBeNull();
+    expect(bill.items).toHaveLength(3);
+  });
+
+  it('存储抛错不阻断识别:invoiceUrl 为 null,条目照常入库', async () => {
+    const app = testApp({
+      parser: stubParser(),
+      fileStore: {
+        save: async () => {
+          throw new Error('Cloudinary 挂了');
+        },
+      },
+    });
+    const { id } = (await (await app.request(createBillReq())).json()) as {
+      id: string;
+    };
+    const res = await app.request(parseReq(id));
+    expect(res.status).toBe(200);
+    const bill = (await res.json()) as {
+      invoiceUrl: string | null;
+      items: unknown[];
+    };
+    expect(bill.invoiceUrl).toBeNull();
+    expect(bill.items).toHaveLength(3);
+  });
+
   it('PDF 上传:mimeType 与内容原样透传给 provider(PRD A1 支持 PDF)', async () => {
     const { parser, last } = recordingParser();
     const app = testApp({ parser });

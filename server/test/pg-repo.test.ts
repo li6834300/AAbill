@@ -49,6 +49,7 @@ const sampleBill = (): Bill => ({
   status: 'draft',
   createdAt: new Date().toISOString(),
   shareToken: crypto.randomUUID(),
+  invoiceUrl: null,
   printedTotals: null,
   items: [],
   families: [],
@@ -117,6 +118,7 @@ describe('PostgresBillRepo', () => {
       vatByClass: { A: 59, B: 3599 },
       grossCents: 55379,
     };
+    bill.invoiceUrl = 'https://res.cloudinary.com/x/inv.pdf';
     bill.status = 'locked';
     await repo.save(bill);
 
