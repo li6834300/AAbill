@@ -69,6 +69,17 @@ async function setupBill() {
 }
 
 describe('GET /bills/:id/settlement', () => {
+  it('复现 bug:空账单(无家庭/条目)→ 409 而非 500', async () => {
+    // 详情页每次加载都拉 settlement;新建账单尚无家庭,core.settle 会抛"家庭列表不能为空"。
+    // 应作为"尚未就绪"的 409 处理,不能 500。
+    const app = testApp();
+    const bill = await json<{ id: string }>(
+      await app.request(req('/bills', { title: '空单', taxCountry: 'DE' })),
+    );
+    const res = await app.request(getReq(`/bills/${bill.id}/settlement`));
+    expect(res.status).toBe(409);
+  });
+
   it('有未认领商品:409 并指明商品名', async () => {
     const { app, bill } = await setupBill();
     const res = await app.request(getReq(`/bills/${bill.id}/settlement`));
