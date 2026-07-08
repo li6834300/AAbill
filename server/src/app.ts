@@ -328,6 +328,9 @@ export function createApp({
   app.post('/bills/:id/lock', async (c) => {
     const bill = await loadBill(c, c.req.param('id'));
     if (!bill) return c.json({ error: 'bill not found' }, 404);
+    if (bill.families.length === 0 || bill.items.length === 0) {
+      return c.json({ error: '账单尚未就绪(需先添加家庭与条目)' }, 409);
+    }
     const unclaimed = unclaimedNames(bill);
     if (unclaimed.length > 0) {
       return c.json(
@@ -342,6 +345,10 @@ export function createApp({
   app.get('/bills/:id/settlement', async (c) => {
     const bill = await loadBill(c, c.req.param('id'));
     if (!bill) return c.json({ error: 'bill not found' }, 404);
+    // 尚未就绪(无家庭或无条目)→ 409;详情页会据此隐藏汇总,不能让 core.settle 抛错 500
+    if (bill.families.length === 0 || bill.items.length === 0) {
+      return c.json({ error: '账单尚未就绪(需先添加家庭与条目)' }, 409);
+    }
     const unclaimed = unclaimedNames(bill);
     if (unclaimed.length > 0) {
       return c.json(
