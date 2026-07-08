@@ -21,7 +21,21 @@ describe('ValidationBanner', () => {
     expect(screen.getByText(/与发票合计一致/)).toBeTruthy();
   });
 
-  it('有差额:逐项显示非零差额(欧元),提示排查', () => {
+  it('小尾差(几分钱,四舍五入):柔和"基本吻合",不报警', () => {
+    render(
+      <ValidationBanner
+        result={{
+          ok: false,
+          diffs: { netCents: 6, vatByClass: { A: 0, B: 0 }, grossCents: 6 },
+        }}
+      />,
+    );
+    expect(screen.getByText(/基本吻合/)).toBeTruthy();
+    expect(screen.getByText(/尾差 0\.06/)).toBeTruthy();
+    expect(screen.queryByText(/合计对不上/)).toBeNull();
+  });
+
+  it('大差额:逐项显示非零差额(欧元),提示排查', () => {
     render(
       <ValidationBanner
         result={{
@@ -34,6 +48,7 @@ describe('ValidationBanner', () => {
         }}
       />,
     );
+    expect(screen.getByText(/合计对不上/)).toBeTruthy();
     expect(screen.getByText(/净额差 -5\.58/)).toBeTruthy();
     expect(screen.getByText(/B 税额差 -0\.39/)).toBeTruthy();
     expect(screen.getByText(/含税差 -5\.97/)).toBeTruthy();

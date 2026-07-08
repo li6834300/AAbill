@@ -46,6 +46,8 @@ export function createOpenAIParser(opts: {
         body: JSON.stringify({
           model: opts.model,
           instructions: SYSTEM_PROMPT,
+          // 长发票(几十行)输出可能很长,给足空间以免被默认上限截断
+          max_output_tokens: 16000,
           input: [
             {
               role: 'user',
