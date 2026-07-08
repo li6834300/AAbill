@@ -81,7 +81,11 @@ export function createApp({
         parsed.data.provider,
         parsed.data.idToken,
       );
-    } catch {
+    } catch (err) {
+      // 只记失败原因,不记 token(排障用)
+      console.warn(
+        `auth/session 校验失败 (provider=${parsed.data.provider}): ${String(err)}`,
+      );
       return c.json({ error: '登录校验失败' }, 401);
     }
     const user: AuthUser = { sub: identity.sub, email: identity.email };
