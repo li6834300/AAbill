@@ -1,6 +1,7 @@
-import { createSign, generateKeyPairSync, type JsonWebKey } from 'node:crypto';
+import { createSign, generateKeyPairSync } from 'node:crypto';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createGoogleVerifier } from '../src/auth/google.js';
+import { selectVerifier } from '../src/auth/verifier.js';
 
 // Google 登录:客户端拿到 Google 签发的 id token(RS256 JWT),发到服务端;
 // 服务端用 Google 公钥(JWKS)验签,并校验 iss / aud(= 我们的 client id)/ email。
@@ -10,14 +11,14 @@ const CLIENT_ID = 'my-client-id.apps.googleusercontent.com';
 const JWKS_URI = 'https://test/certs';
 const KID = 'test-key-1';
 
-let publicJwk: JsonWebKey;
+let publicJwk: Record<string, unknown>;
 let privatePem: string;
 
 beforeAll(() => {
   const { publicKey, privateKey } = generateKeyPairSync('rsa', {
     modulusLength: 2048,
   });
-  publicJwk = publicKey.export({ format: 'jwk' }) as JsonWebKey;
+  publicJwk = publicKey.export({ format: 'jwk' }) as Record<string, unknown>;
   publicJwk.kid = KID;
   publicJwk.alg = 'RS256';
   publicJwk.use = 'sig';
@@ -77,7 +78,10 @@ describe('createGoogleVerifier', () => {
   it('aud 不是我们的 client id → 抛错', async () => {
     stubJwks();
     await expect(
-      verifier().verify('google', makeToken(validClaims({ aud: 'someone-else' }))),
+      verifier().verify(
+        'google',
+        makeToken(validClaims({ aud: 'someone-else' })),
+      ),
     ).rejects.toThrow();
   });
 
@@ -107,10 +111,28 @@ describe('createGoogleVerifier', () => {
   it('签名对不上(用错 kid 找不到公钥)→ 抛错', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn(async () => Response.json({ keys: [{ ...publicJwk, kid: 'other' }] })),
+      vi.fn(async () =>
+        Response.json({ keys: [{ ...publicJwk, kid: 'other' }] }),
+      ),
     );
     await expect(
       verifier().verify('google', makeToken(validClaims())),
     ).rejects.toThrow();
+  });
+});
+
+describe('selectVerifier 走 Google', () => {
+  it('有 GOOGLE_CLIENT_ID → 用 Google 校验器(非法 token 直接拒)', async () => {
+    const v = selectVerifier({ GOOGLE_CLIENT_ID: CLIENT_ID });
+    await expect(v.verify('google', 'not-a-jwt')).rejects.toThrow();
+  });
+
+  it('GOOGLE_CLIENT_ID 优先于 ALLOW_DEV_LOGIN', async () => {
+    // dev 校验器会把 'a@b.com' 当邮箱通过;Google 校验器会拒。用后者行为区分。
+    const v = selectVerifier({
+      GOOGLE_CLIENT_ID: CLIENT_ID,
+      ALLOW_DEV_LOGIN: '1',
+    });
+    await expect(v.verify('google', 'a@b.com')).rejects.toThrow();
   });
 });
