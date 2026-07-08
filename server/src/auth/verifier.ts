@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { createGoogleVerifier } from './google.js';
 
 export interface OAuthIdentity {
   sub: string;
@@ -51,9 +52,16 @@ export function createUnconfiguredVerifier(): IdentityVerifier {
 }
 
 /** 按环境选 verifier:ALLOW_DEV_LOGIN=1 → dev,否则未配置(拒绝)。 */
+/**
+ * 按环境选 verifier:
+ * - GOOGLE_CLIENT_ID → Google 真登录(生产)
+ * - ALLOW_DEV_LOGIN=1 → dev 登录(本地)
+ * - 否则 → 未配置(拒绝)
+ */
 export function selectVerifier(
   env: Record<string, string | undefined>,
 ): IdentityVerifier {
+  if (env.GOOGLE_CLIENT_ID) return createGoogleVerifier(env.GOOGLE_CLIENT_ID);
   if (env.ALLOW_DEV_LOGIN === '1') return createDevVerifier();
   return createUnconfiguredVerifier();
 }
