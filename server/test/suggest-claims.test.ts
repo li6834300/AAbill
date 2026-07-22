@@ -93,7 +93,8 @@ describe('POST /share/:token/suggest-claims', () => {
   });
 
   it('候选必须带重量/件数与单价 —— 否则同名商品(8块牛肉)无法区分', async () => {
-    let seen: Array<{ qtyLabel: string; priceLabel: string; name: string }> = [];
+    let seen: Array<{ qtyLabel: string; priceLabel: string; name: string }> =
+      [];
     const realApp = testApp({
       suggester: {
         suggestItems: async ({ candidates }) => {
@@ -179,11 +180,13 @@ describe('POST /share/:token/suggest-claims', () => {
 describe('mock suggester', () => {
   it('确定性:返回候选里的前两个', async () => {
     const s = createMockSuggester();
-    const candidates = [
-      { id: 'a', name: 'A', nameZh: '' },
-      { id: 'b', name: 'B', nameZh: '' },
-      { id: 'c', name: 'C', nameZh: '' },
-    ];
+    const candidates = ['a', 'b', 'c'].map((id) => ({
+      id,
+      name: id.toUpperCase(),
+      nameZh: '',
+      qtyLabel: '1 件',
+      priceLabel: '1.00 €/件',
+    }));
     expect(await s.suggestItems({ ...PHOTO, candidates })).toEqual(['a', 'b']);
   });
 });
