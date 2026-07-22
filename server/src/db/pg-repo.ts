@@ -11,6 +11,8 @@ interface BillRow {
   title: string;
   status: Bill['status'];
   tax_country: Bill['taxCountry'];
+  tax_rate_a_bp: number | null;
+  tax_rate_b_bp: number | null;
   share_token: string;
   invoice_url: string | null;
   invoice_net_cents: number | null;
@@ -76,6 +78,10 @@ export function createPostgresRepo(pool: Pool): BillRepo {
       ownerId: row.owner_id,
       title: row.title,
       taxCountry: row.tax_country,
+      taxRates:
+        row.tax_rate_a_bp === null || row.tax_rate_b_bp === null
+          ? null
+          : { A: row.tax_rate_a_bp, B: row.tax_rate_b_bp },
       status: row.status,
       createdAt: row.created_at.toISOString(),
       shareToken: row.share_token,
@@ -143,11 +149,14 @@ export function createPostgresRepo(pool: Pool): BillRepo {
         `insert into bills
            (id, owner_id, title, status, tax_country, share_token, invoice_url,
             invoice_net_cents, invoice_vat_a_cents, invoice_vat_b_cents,
-            invoice_gross_cents, created_at)
-         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+            invoice_gross_cents, created_at, tax_rate_a_bp, tax_rate_b_bp)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
          on conflict (id) do update set
            title = excluded.title,
            status = excluded.status,
+           tax_country = excluded.tax_country,
+           tax_rate_a_bp = excluded.tax_rate_a_bp,
+           tax_rate_b_bp = excluded.tax_rate_b_bp,
            invoice_url = excluded.invoice_url,
            invoice_net_cents = excluded.invoice_net_cents,
            invoice_vat_a_cents = excluded.invoice_vat_a_cents,
@@ -166,6 +175,8 @@ export function createPostgresRepo(pool: Pool): BillRepo {
           bill.printedTotals?.vatByClass.B ?? null,
           bill.printedTotals?.grossCents ?? null,
           bill.createdAt,
+          bill.taxRates?.A ?? null,
+          bill.taxRates?.B ?? null,
         ],
       );
       await writeChildren(client, bill);

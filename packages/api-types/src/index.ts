@@ -1,9 +1,17 @@
+import { TAX_COUNTRIES } from '@aabill/core';
 import { z } from 'zod';
 
 // API 边界共享 schema:金额过网络一律整数分/千分位整数(见 ADR 0003);
 // AI 识别输出保持发票原貌的十进制字符串,由 server 边界统一转换。
 
-export const TaxCountrySchema = z.enum(['DE', 'NL']);
+// 国家清单与兜底税率同源于 core —— 避免两处各写一份、悄悄漂移
+export const TaxCountrySchema = z.enum(TAX_COUNTRIES);
+
+/** 实际生效的税率,单位基点(19% = 1900)。优先取发票印刷值,读不出才用国家表。 */
+export const TaxRatesSchema = z.object({
+  A: z.number().int().nonnegative(),
+  B: z.number().int().nonnegative(),
+});
 export const TaxClassSchema = z.enum(['A', 'B']);
 export const BillStatusSchema = z.enum(['draft', 'claiming', 'locked']);
 
@@ -114,8 +122,10 @@ export const BillSchema = z.object({
   /** 归属 Owner(JWT sub);Participant 无归属 */
   ownerId: z.string(),
   title: z.string(),
-  /** null = 尚未确定税制(AI 没识别出且用户还没选) */
+  /** null = 尚未确定税制(AI 没识别出且用户还没选)。仅作标签与税率兜底来源 */
   taxCountry: TaxCountrySchema.nullable(),
+  /** 算钱真正用的税率(基点)。null = 无从计税,校验/结算/锁定一律挡下 */
+  taxRates: TaxRatesSchema.nullable(),
   status: BillStatusSchema,
   createdAt: z.string(),
   /** 免登录分享凭证(PRD §5.3):持有者可读账单、写 claims */
@@ -145,8 +155,13 @@ export const ParsedItemSchema = z.object({
 });
 
 export const ParsedReceiptSchema = z.object({
-  /** 从发票上读出的国家/税制;读不出返回 UNKNOWN,由用户指定 */
-  detectedTaxCountry: z.enum(['DE', 'NL', 'UNKNOWN']),
+  /** 从发票上读出的**开票方**国家;读不出返回 UNKNOWN,由用户指定 */
+  detectedTaxCountry: z.enum([...TAX_COUNTRIES, 'UNKNOWN']),
+  /**
+   * 发票税额汇总栏印的实际税率百分比,原样字符串("19,00"、"5.5")。
+   * 读不出留空串 —— 这才是权威税率,国家表只是兜底。
+   */
+  detectedRates: z.object({ A: z.string(), B: z.string() }),
   items: z.array(ParsedItemSchema),
   totals: z.object({
     net: decimalCents,
@@ -157,6 +172,7 @@ export const ParsedReceiptSchema = z.object({
 });
 
 export type TaxCountry = z.infer<typeof TaxCountrySchema>;
+export type TaxRates = z.infer<typeof TaxRatesSchema>;
 export type TaxClass = z.infer<typeof TaxClassSchema>;
 export type BillStatus = z.infer<typeof BillStatusSchema>;
 export type BillCreate = z.infer<typeof BillCreateSchema>;

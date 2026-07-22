@@ -1,5 +1,5 @@
 import { claimableUnits, type Bill } from '@aabill/api-types';
-import { DEFAULT_TAX_RATES, vatCents } from '@aabill/core';
+import { vatCents } from '@aabill/core';
 import { useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -54,8 +54,9 @@ export default function ClaimScreen() {
   }
 
   const locked = bill.status === 'locked';
-  // 税制未定(发票没读出、Owner 还没补选)→ 税额无从算,汇总只给净额
-  const rates = bill.taxCountry ? DEFAULT_TAX_RATES[bill.taxCountry] : null;
+  // 税制未定(发票没读出、Owner 还没补选)→ 税额无从算,汇总只给净额。
+  // 税率取账单上存的实际值(优先来自发票印刷),不在这里反查国家表。
+  const rates = bill.taxRates;
 
   /** 选家庭时,用服务端已有的该家认领初始化本地草稿(轮询不会覆盖用户正在改的) */
   const selectFamily = (familyId: string) => {
