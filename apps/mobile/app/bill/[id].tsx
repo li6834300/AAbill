@@ -240,6 +240,11 @@ export default function BillScreen() {
       </Pressable>
 
       <Text style={styles.section}>参与家庭</Text>
+      {bill.families.length === 0 && bill.items.length > 0 && (
+        <Text style={styles.warnHint}>
+          ⚠️ 还没添加家庭 —— 朋友打开分享链接将无法认领,请先把参与的家庭加上。
+        </Text>
+      )}
       <FamilyChips
         families={bill.families}
         onAdd={(name) => run('添加家庭…', () => api.addFamily(id!, name))}
@@ -317,6 +322,7 @@ const styles = StyleSheet.create({
   link: { color: '#0a7', fontWeight: '600', paddingVertical: 4 },
   error: { color: '#b42318' },
   hint: { color: '#999', fontSize: 12, marginTop: 8 },
+  warnHint: { color: '#8a6d00', fontSize: 12 },
   lockBtn: {
     backgroundColor: '#b42318',
     borderRadius: 8,

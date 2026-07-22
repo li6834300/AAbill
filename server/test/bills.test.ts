@@ -136,6 +136,38 @@ describe('条目校对编辑(PRD A2)', () => {
     });
   });
 
+  it('复现 bug:PATCH 单个字段不得清空未提交的字段(中文名/单位/均摊)', async () => {
+    const app = newApp();
+    const { id } = await createBill(app);
+    const item = (await (
+      await app.request(
+        post(`/bills/${id}/items`, {
+          name: 'Eier',
+          nameZh: '散养鸡蛋',
+          qtyMilli: 2871,
+          unit: 'KG',
+          unitPriceMilli: 2790,
+          taxClass: 'B',
+          isShared: true,
+        }),
+      )
+    ).json()) as Obj;
+
+    // 只改单价:其余字段必须原样保留(此前 schema 默认值会把它们重置)
+    const res = await app.request(
+      send(`/bills/${id}/items/${item.id}`, 'PATCH', {
+        unitPriceMilli: 2690,
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({
+      nameZh: '散养鸡蛋',
+      unit: 'KG',
+      isShared: true,
+      unitPriceMilli: 2690,
+    });
+  });
+
   it('DELETE 删行;条目不存在 404', async () => {
     const app = newApp();
     const { id } = await createBill(app);

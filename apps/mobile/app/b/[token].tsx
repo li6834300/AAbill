@@ -68,23 +68,41 @@ export default function ClaimScreen() {
       {error && <Text style={styles.error}>{error}</Text>}
 
       <Text style={styles.section}>我是哪家?</Text>
-      <View style={styles.chips}>
-        {bill.families.map((f) => (
-          <Pressable
-            key={f.id}
-            style={[styles.chip, selectedFamilyId === f.id && styles.chipOn]}
-            onPress={() => setSelectedFamilyId(f.id)}
-          >
-            <Text
-              style={selectedFamilyId === f.id ? styles.chipOnText : undefined}
-            >
-              {f.name}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
-      {!selectedFamilyId && !locked && (
-        <Text style={styles.hint}>先选择你的家庭,再勾选自己买的商品。</Text>
+      {bill.families.length === 0 ? (
+        <View style={styles.noticeBox}>
+          <Text style={styles.noticeText}>
+            账单发起人还没添加参与的家庭,暂时无法认领。
+          </Text>
+          <Text style={styles.hint}>
+            请让发起人在账单页的「参与家庭」里把大家加上,然后刷新本页。
+          </Text>
+        </View>
+      ) : (
+        <>
+          <View style={styles.chips}>
+            {bill.families.map((f) => (
+              <Pressable
+                key={f.id}
+                style={[
+                  styles.chip,
+                  selectedFamilyId === f.id && styles.chipOn,
+                ]}
+                onPress={() => setSelectedFamilyId(f.id)}
+              >
+                <Text
+                  style={
+                    selectedFamilyId === f.id ? styles.chipOnText : undefined
+                  }
+                >
+                  {f.name}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+          {!selectedFamilyId && !locked && (
+            <Text style={styles.hint}>先选择你的家庭,再勾选自己买的商品。</Text>
+          )}
+        </>
       )}
 
       <Text style={styles.section}>
@@ -130,4 +148,6 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   lockedText: { color: '#8a6d00', fontWeight: '600' },
+  noticeBox: { backgroundColor: '#fff4e5', borderRadius: 8, padding: 12 },
+  noticeText: { color: '#8a6d00', fontWeight: '600' },
 });

@@ -2,6 +2,7 @@ import {
   BillCreateSchema,
   ClaimUpsertSchema,
   ItemInputSchema,
+  ItemPatchSchema,
   PrintedTotalsSchema,
   SessionRequestSchema,
   type AuthUser,
@@ -193,7 +194,9 @@ export function createApp({
     if (!bill) return c.json({ error: 'bill not found' }, 404);
     const item = bill.items.find((i) => i.id === c.req.param('itemId'));
     if (!item) return c.json({ error: 'item not found' }, 404);
-    const parsed = ItemInputSchema.partial().safeParse(
+    // 必须用不带默认值的 patch schema:partial() 会给未提交字段补默认值,
+    // 从而清空中文名 / 重置单位 / 取消均摊(见 bills.test 的复现用例)
+    const parsed = ItemPatchSchema.safeParse(
       await c.req.json().catch(() => null),
     );
     if (!parsed.success) return c.json({ error: parsed.error.issues }, 400);
