@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_TAX_RATES,
+  isReducedRateAmbiguous,
   TAX_COUNTRIES,
   VAT_RATES_SOURCE,
   reducedRateOptions,
@@ -55,6 +56,11 @@ describe('生成的税率表自洽', () => {
     expect(DEFAULT_TAX_RATES.DK.B).toBe(DEFAULT_TAX_RATES.DK.A);
   });
 
+  it('只有一档低税率的国家,兜底值就是那一档', () => {
+    expect(DEFAULT_TAX_RATES.DE.B).toBe(700);
+    expect(DEFAULT_TAX_RATES.NL.B).toBe(900);
+  });
+
   it('罗马尼亚标准税率取自上游,不是我记的 19%', () => {
     // 回归:2025 年 RO 调到 21%,凭记忆填的表错了整整两个百分点
     expect(DEFAULT_TAX_RATES.RO.A).toBe(2100);
@@ -75,10 +81,30 @@ describe('reducedRateOptions:一国可能有多档低税率', () => {
     expect(reducedRateOptions('DK')).toEqual([]);
   });
 
-  it('兜底的 B 取该国最低的一档低税率', () => {
+  it('兜底的 B 必须是该国真实存在的一档', () => {
     for (const c of TAX_COUNTRIES) {
       const opts = reducedRateOptions(c);
-      if (opts.length > 0) expect(DEFAULT_TAX_RATES[c].B).toBe(opts[0]);
+      if (opts.length > 0) expect(opts, c).toContain(DEFAULT_TAX_RATES[c].B);
     }
+  });
+});
+
+describe('多档低税率无法自动判定,必须问用户', () => {
+  // 法国上游给出 [0.9, 1.05, 5.5, 8.5, 10, 13](含海外省与科西嘉特别税率)。
+  // 「哪一档适用于食品」推导不出来 —— 取最低会选中 0.9%,荒谬。
+  // 所以:唯一一档才自动用,多档一律交给用户选。
+  it('德国荷兰只有一档 → 不含糊', () => {
+    expect(isReducedRateAmbiguous('DE')).toBe(false);
+    expect(isReducedRateAmbiguous('NL')).toBe(false);
+  });
+
+  it('丹麦没有低税率档 → 也不含糊(B 就等于标准税率)', () => {
+    expect(isReducedRateAmbiguous('DK')).toBe(false);
+  });
+
+  it('法国多档 → 含糊,不许替用户猜', () => {
+    expect(isReducedRateAmbiguous('FR')).toBe(true);
+    expect(reducedRateOptions('FR')).toContain(550); // 5.5% 确实在候选里
+    expect(reducedRateOptions('FR').length).toBeGreaterThan(1);
   });
 });

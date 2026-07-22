@@ -95,10 +95,10 @@ describe('税率用基点(bp)表示,不用整数百分比', () => {
     expect(DEFAULT_TAX_RATES.NL).toEqual({ A: 2100, B: 900 });
   });
 
-  it('覆盖非整数税率的国家', () => {
-    expect(DEFAULT_TAX_RATES.FR.B).toBe(550); // 5.5%
-    expect(DEFAULT_TAX_RATES.CH).toEqual({ A: 810, B: 260 }); // 8.1% / 2.6%
-    expect(DEFAULT_TAX_RATES.IE.B).toBe(1350); // 13.5%
+  it('覆盖非整数税率的国家(值取自 TEDB 同步物,不是手写)', () => {
+    expect(DEFAULT_TAX_RATES.FR.A).toBe(2000);
+    expect(DEFAULT_TAX_RATES.CH.A).toBe(810); // 8.1%
+    expect(DEFAULT_TAX_RATES.FI.A).toBe(2550); // 芬兰 25.5%,非整数百分比
   });
 
   it('丹麦没有低税率档:两档相同', () => {
