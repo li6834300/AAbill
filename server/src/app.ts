@@ -68,7 +68,10 @@ const claimedUnits = (bill: Bill, itemId: string): number =>
 const unclaimedNames = (bill: Bill): string[] =>
   bill.items
     .filter((i) => !i.isShared)
-    .map((i) => ({ i, missing: claimableUnits(i.qtyMilli) - claimedUnits(bill, i.id) }))
+    .map((i) => ({
+      i,
+      missing: claimableUnits(i.qtyMilli) - claimedUnits(bill, i.id),
+    }))
     .filter(({ missing }) => missing > 0)
     .map(({ i, missing }) => `${i.name}(还差 ${missing} 件)`);
 

@@ -59,6 +59,15 @@ export const shareUrl = (token: string): string => {
   return `${origin}/b/${token}`;
 };
 
+/** 认领超量时服务端逐项返回的冲突 */
+export interface ClaimConflict {
+  itemId: string;
+  itemName: string;
+  requested: number;
+  available: number;
+  claimedByOthers: number;
+}
+
 export interface ValidateResponse {
   ok: boolean;
   computed: unknown;
@@ -118,6 +127,28 @@ export const api = {
     req(`/bills/${id}/families/${familyId}`, { method: 'DELETE' }),
   // ---- Participant(免登录,凭 share_token)----
   getShare: (token: string) => req<Bill>(`/share/${token}`),
+  /**
+   * 批量提交某家庭的认领(整体替换)。
+   * 超量时服务端返回 409 + 逐项冲突,这里转成结构化结果而不是抛错,便于页面高亮。
+   */
+  claimBatch: async (
+    token: string,
+    familyId: string,
+    claims: Array<{ itemId: string; portion: number }>,
+  ): Promise<{ ok: true } | { ok: false; conflicts: ClaimConflict[] }> => {
+    const res = await fetch(`${BASE}/share/${token}/claims/batch`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ familyId, claims }),
+    });
+    if (res.ok) return { ok: true };
+    if (res.status === 409) {
+      const data = (await res.json()) as { conflicts?: ClaimConflict[] };
+      return { ok: false, conflicts: data.conflicts ?? [] };
+    }
+    throw new Error(`API ${res.status}: ${await res.text()}`);
+  },
+
   /** 拍照认领:AI 建议照片里出现的商品(仅建议,需用户确认) */
   suggestClaims: (token: string, fileBase64: string, mimeType: string) =>
     req<{ suggestedItemIds: string[] }>(

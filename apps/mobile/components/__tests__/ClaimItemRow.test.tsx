@@ -108,9 +108,7 @@ describe('ClaimItemRow(件数版)', () => {
   });
 
   it('冲突时高亮并说明原因', () => {
-    render(
-      <ClaimItemRow {...base} myPortion={8} conflict="只剩 7 件可认领" />,
-    );
+    render(<ClaimItemRow {...base} myPortion={8} conflict="只剩 7 件可认领" />);
     expect(screen.getByText(/只剩 7 件可认领/)).toBeTruthy();
   });
 });

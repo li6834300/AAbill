@@ -81,13 +81,11 @@ describe('PUT /share/:token/claims/batch', () => {
     ]);
     expect(res.status).toBe(200);
 
-    const view = await j<{ claims: Array<{ itemId: string; portion: number }> }>(
-      await app.request(`http://x/share/${bill.shareToken}`),
-    );
+    const view = await j<{
+      claims: Array<{ itemId: string; portion: number }>;
+    }>(await app.request(`http://x/share/${bill.shareToken}`));
     expect(view.claims).toHaveLength(2);
-    expect(
-      view.claims.find((c) => c.itemId === eggs.id)?.portion,
-    ).toBe(8);
+    expect(view.claims.find((c) => c.itemId === eggs.id)?.portion).toBe(8);
 
     // 再次提交只留 1 件 → 覆盖式替换(牛肉那条被撤掉)
     await batch(me.id, [{ itemId: eggs.id, portion: 2 }]);
@@ -120,9 +118,9 @@ describe('PUT /share/:token/claims/batch', () => {
 
   it('并发场景:朋友先领 3 盒,我再领 8 盒 → 409(只剩 7)', async () => {
     const { eggs, me, friend, batch } = await setup();
-    expect((await batch(friend.id, [{ itemId: eggs.id, portion: 3 }])).status).toBe(
-      200,
-    );
+    expect(
+      (await batch(friend.id, [{ itemId: eggs.id, portion: 3 }])).status,
+    ).toBe(200);
     const res = await batch(me.id, [{ itemId: eggs.id, portion: 8 }]);
     expect(res.status).toBe(409);
     const out = await j<{ conflicts: Array<Record<string, unknown>> }>(res);
@@ -152,16 +150,16 @@ describe('PUT /share/:token/claims/batch', () => {
     const { eggs, me, batch } = await setup();
     await batch(me.id, [{ itemId: eggs.id, portion: 10 }]);
     // 再提交一次同样 10 盒:自己的旧记录应被替换,而不是累加成 20
-    expect((await batch(me.id, [{ itemId: eggs.id, portion: 10 }])).status).toBe(
-      200,
-    );
+    expect(
+      (await batch(me.id, [{ itemId: eggs.id, portion: 10 }])).status,
+    ).toBe(200);
   });
 
   it('未知家庭/商品/token → 404', async () => {
     const { eggs, me, batch, app } = await setup();
-    expect((await batch('nope', [{ itemId: eggs.id, portion: 1 }])).status).toBe(
-      404,
-    );
+    expect(
+      (await batch('nope', [{ itemId: eggs.id, portion: 1 }])).status,
+    ).toBe(404);
     expect((await batch(me.id, [{ itemId: 'nope', portion: 1 }])).status).toBe(
       404,
     );
