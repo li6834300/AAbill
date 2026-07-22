@@ -1,6 +1,8 @@
 import {
   BillCreateSchema,
+  ClaimBatchSchema,
   ClaimUpsertSchema,
+  claimableUnits,
   ItemInputSchema,
   ItemPatchSchema,
   PrintedTotalsSchema,
@@ -52,11 +54,26 @@ const ParseBodySchema = z.object({
 /** 十进制金额字符串 → 整数分(如 '18.63' → 1863) */
 const toCents = (decimal: string) => toMilli(decimal) / 10;
 
-/** 未认领且未均摊的商品名(PRD D1:全部认领完成才可锁定/结算) */
+/** 某商品已被认领的件数(各家之和) */
+const claimedUnits = (bill: Bill, itemId: string): number =>
+  bill.claims
+    .filter((cl) => cl.itemId === itemId)
+    .reduce((sum, cl) => sum + cl.portion, 0);
+
+/**
+ * 尚未认领满的商品(PRD D1:全部认领完成才可锁定/结算)。
+ * portion 是**实际件数**,所以"认领完"= 各家件数之和 == 商品件数,
+ * 只领了 8/10 盒也算没完 —— 否则 settle 会把 8 盒的人按 10 盒摊,金额是错的。
+ */
 const unclaimedNames = (bill: Bill): string[] =>
   bill.items
-    .filter((i) => !i.isShared && !bill.claims.some((cl) => cl.itemId === i.id))
-    .map((i) => i.name);
+    .filter((i) => !i.isShared)
+    .map((i) => ({
+      i,
+      missing: claimableUnits(i.qtyMilli) - claimedUnits(bill, i.id),
+    }))
+    .filter(({ missing }) => missing > 0)
+    .map(({ i, missing }) => `${i.name}(还差 ${missing} 件)`);
 
 const LOCKED_MSG = '账单已锁定,不可再修改';
 
@@ -294,6 +311,73 @@ export function createApp({
     }
   });
 
+  /**
+   * 批量提交某家庭的认领:整体替换该家庭在本账单的所有认领。
+   * 校验 portion(件数)之和不超过商品件数;超量返回 409 并逐项说明,
+   * 用于"朋友先领了、我再领就超了"的并发场景。
+   */
+  app.put('/share/:token/claims/batch', async (c) => {
+    const bill = await repo.getByToken(c.req.param('token'));
+    if (!bill) return c.json({ error: 'share link 无效' }, 404);
+    if (bill.status === 'locked')
+      return c.json({ error: '账单已锁定,认领不可再修改' }, 423);
+    const parsed = ClaimBatchSchema.safeParse(
+      await c.req.json().catch(() => null),
+    );
+    if (!parsed.success) return c.json({ error: parsed.error.issues }, 400);
+    const { familyId, claims } = parsed.data;
+    if (!bill.families.some((f) => f.id === familyId))
+      return c.json({ error: 'family not found' }, 404);
+
+    const conflicts: Array<{
+      itemId: string;
+      itemName: string;
+      requested: number;
+      available: number;
+      claimedByOthers: number;
+    }> = [];
+    for (const { itemId, portion } of claims) {
+      const item = bill.items.find((i) => i.id === itemId);
+      if (!item) return c.json({ error: `item not found: ${itemId}` }, 404);
+      if (item.isShared)
+        return c.json({ error: '均摊商品由全部家庭平分,无需认领' }, 409);
+      // 只和「别家」的认领相加:重新提交自己的认领是替换,不是累加
+      const claimedByOthers = bill.claims
+        .filter((cl) => cl.itemId === itemId && cl.familyId !== familyId)
+        .reduce((s, cl) => s + cl.portion, 0);
+      const available = claimableUnits(item.qtyMilli) - claimedByOthers;
+      if (portion > available) {
+        conflicts.push({
+          itemId,
+          itemName: item.name,
+          requested: portion,
+          available,
+          claimedByOthers,
+        });
+      }
+    }
+    if (conflicts.length > 0) {
+      return c.json(
+        { error: '有商品认领数量超出剩余可认领量', conflicts },
+        409,
+      );
+    }
+
+    const now = new Date().toISOString();
+    bill.claims = [
+      ...bill.claims.filter((cl) => cl.familyId !== familyId),
+      ...claims.map(({ itemId, portion }) => ({
+        id: crypto.randomUUID(),
+        itemId,
+        familyId,
+        portion,
+        updatedAt: now,
+      })),
+    ];
+    await repo.save(bill);
+    return c.json({ claims: bill.claims });
+  });
+
   app.put('/share/:token/claims', async (c) => {
     const bill = await repo.getByToken(c.req.param('token'));
     if (!bill) return c.json({ error: 'share link 无效' }, 404);
@@ -310,6 +394,17 @@ export function createApp({
       return c.json({ error: 'family not found' }, 404);
     if (item.isShared)
       return c.json({ error: '均摊商品由全部家庭平分,无需认领' }, 409);
+    // 件数校验:与别家已领的相加不得超过商品件数
+    const others = bill.claims
+      .filter((cl) => cl.itemId === itemId && cl.familyId !== familyId)
+      .reduce((s, cl) => s + cl.portion, 0);
+    const available = claimableUnits(item.qtyMilli) - others;
+    if (portion > available) {
+      return c.json(
+        { error: `超出可认领件数,还剩 ${available} 件`, available },
+        409,
+      );
+    }
 
     bill.claims = bill.claims.filter(
       (cl) => !(cl.itemId === itemId && cl.familyId === familyId),

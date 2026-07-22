@@ -3,94 +3,112 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 import React from 'react';
 import { ClaimItemRow } from '../ClaimItemRow';
 
-// PRD C2:Participant 勾选自己买的商品;已被别家认领的有标识;
-// 同一商品可多家共享(按份数);均摊商品不可认领;锁定后只读。
+// 认领行(重设计):portion = 实际件数。
+// 必须让用户看见:单价、共几件、别家已领几件、我还能领几件、我领了多少钱。
+// 选择是**本地的**(不即时提交),由页面统一提交。
 
-const item = {
-  id: 'i1',
-  name: '4X20g KERRY CHEESTRINGS',
-  nameZh: '奶酪条',
-  qtyMilli: 3000,
-  unit: 'SP',
-  unitPriceMilli: 2050,
+const eggs = {
+  id: 'i-eggs',
+  name: '10er Eier',
+  nameZh: '鸡蛋',
+  qtyMilli: 10000, // 10 盒
+  unit: 'PG',
+  unitPriceMilli: 2790, // 2.79 €/盒
   taxClass: 'B' as const,
   isShared: false,
   source: 'ai' as const,
 };
-
-const families = [
-  { id: 'f1', name: 'Rio家', sortOrder: 0 },
-  { id: 'f2', name: '老唐家', sortOrder: 1 },
-];
-
-const base = {
-  item,
-  families,
-  claims: [] as Array<{ itemId: string; familyId: string; portion: number }>,
-  selectedFamilyId: 'f1',
-  locked: false,
-  onSetPortion: jest.fn(),
+const beef = {
+  ...eggs,
+  id: 'i-beef',
+  name: 'RINDER FILET',
+  nameZh: '牛柳',
+  qtyMilli: 2871, // 2.871kg 一整块
+  unit: 'KG',
+  unitPriceMilli: 12290,
 };
 
-describe('ClaimItemRow', () => {
-  it('展示名称/中文名/行净额,他家认领显示标识', () => {
+const base = {
+  item: eggs,
+  myPortion: 0,
+  othersPortions: 0,
+  locked: false,
+  onChange: jest.fn(),
+};
+
+describe('ClaimItemRow(件数版)', () => {
+  it('展示单价与总件数', () => {
+    render(<ClaimItemRow {...base} />);
+    expect(screen.getByText('10er Eier')).toBeTruthy();
+    expect(screen.getByText(/2\.79/)).toBeTruthy(); // 单价
+    expect(screen.getByText(/共 10 件/)).toBeTruthy();
+  });
+
+  it('别家已领时显示剩余可领件数', () => {
+    render(<ClaimItemRow {...base} othersPortions={3} />);
+    expect(screen.getByText(/别家已领 3/)).toBeTruthy();
+    expect(screen.getByText(/还剩 7/)).toBeTruthy();
+  });
+
+  it('加减改变件数,并回传新件数', () => {
+    const onChange = jest.fn();
+    render(<ClaimItemRow {...base} myPortion={2} onChange={onChange} />);
+    fireEvent.press(screen.getByTestId('inc-i-eggs'));
+    expect(onChange).toHaveBeenCalledWith(3);
+    fireEvent.press(screen.getByTestId('dec-i-eggs'));
+    expect(onChange).toHaveBeenCalledWith(1);
+  });
+
+  it('不能超过剩余可领件数(别家领3 → 我最多7)', () => {
+    const onChange = jest.fn();
     render(
       <ClaimItemRow
         {...base}
-        claims={[{ itemId: 'i1', familyId: 'f2', portion: 2 }]}
+        myPortion={7}
+        othersPortions={3}
+        onChange={onChange}
       />,
     );
-    expect(screen.getByText('4X20g KERRY CHEESTRINGS')).toBeTruthy();
-    expect(screen.getByText(/奶酪条/)).toBeTruthy();
-    expect(screen.getByText(/6\.15/)).toBeTruthy(); // 3×2.05
-    expect(screen.getByText(/老唐家 ×2/)).toBeTruthy();
+    fireEvent.press(screen.getByTestId('inc-i-eggs'));
+    expect(onChange).not.toHaveBeenCalled();
   });
 
-  it('未认领:点「认领」→ onSetPortion(1)', () => {
-    const onSetPortion = jest.fn();
-    render(<ClaimItemRow {...base} onSetPortion={onSetPortion} />);
-    fireEvent.press(screen.getByText('认领'));
-    expect(onSetPortion).toHaveBeenCalledWith(1);
+  it('件数为 0 时不能再减', () => {
+    const onChange = jest.fn();
+    render(<ClaimItemRow {...base} myPortion={0} onChange={onChange} />);
+    fireEvent.press(screen.getByTestId('dec-i-eggs'));
+    expect(onChange).not.toHaveBeenCalled();
   });
 
-  it('已认领 2 份:＋→3,−→1,取消→0', () => {
-    const onSetPortion = jest.fn();
+  it('显示我这件领了多少钱(件数 × 单价)', () => {
+    render(<ClaimItemRow {...base} myPortion={3} />);
+    expect(screen.getByText(/8\.37/)).toBeTruthy(); // 3 × 2.79
+  });
+
+  it('计重商品:只能 0 或 1 件,显示重量', () => {
+    const onChange = jest.fn();
     render(
-      <ClaimItemRow
-        {...base}
-        claims={[{ itemId: 'i1', familyId: 'f1', portion: 2 }]}
-        onSetPortion={onSetPortion}
-      />,
+      <ClaimItemRow {...base} item={beef} myPortion={1} onChange={onChange} />,
     );
-    fireEvent.press(screen.getByText('＋'));
-    expect(onSetPortion).toHaveBeenCalledWith(3);
-    fireEvent.press(screen.getByText('−'));
-    expect(onSetPortion).toHaveBeenCalledWith(1);
-    fireEvent.press(screen.getByText('取消'));
-    expect(onSetPortion).toHaveBeenCalledWith(0);
+    expect(screen.getByText(/2\.871 KG/)).toBeTruthy();
+    fireEvent.press(screen.getByTestId('inc-i-beef'));
+    expect(onChange).not.toHaveBeenCalled(); // 整件,已领 1 就是上限
   });
 
-  it('均摊商品:显示「均摊」,无认领控件', () => {
-    render(<ClaimItemRow {...base} item={{ ...item, isShared: true }} />);
+  it('均摊商品:显示均摊,无加减控件', () => {
+    render(<ClaimItemRow {...base} item={{ ...eggs, isShared: true }} />);
     expect(screen.getByText(/均摊/)).toBeTruthy();
-    expect(screen.queryByText('认领')).toBeNull();
+    expect(screen.queryByTestId('inc-i-eggs')).toBeNull();
   });
 
-  it('锁定后:无任何操作按钮', () => {
-    render(
-      <ClaimItemRow
-        {...base}
-        locked
-        claims={[{ itemId: 'i1', familyId: 'f1', portion: 1 }]}
-      />,
-    );
-    expect(screen.queryByText('认领')).toBeNull();
-    expect(screen.queryByText('取消')).toBeNull();
-    expect(screen.queryByText('＋')).toBeNull();
+  it('锁定后无加减控件', () => {
+    render(<ClaimItemRow {...base} myPortion={2} locked />);
+    expect(screen.queryByTestId('inc-i-eggs')).toBeNull();
+    expect(screen.queryByTestId('dec-i-eggs')).toBeNull();
   });
 
-  it('未选择家庭:提示先选家庭,无认领按钮', () => {
-    render(<ClaimItemRow {...base} selectedFamilyId={null} />);
-    expect(screen.queryByText('认领')).toBeNull();
+  it('冲突时高亮并说明原因', () => {
+    render(<ClaimItemRow {...base} myPortion={8} conflict="只剩 7 件可认领" />);
+    expect(screen.getByText(/只剩 7 件可认领/)).toBeTruthy();
   });
 });

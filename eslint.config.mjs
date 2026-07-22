@@ -8,6 +8,7 @@ export default tseslint.config(
       '**/node_modules/',
       '**/dist/',
       '**/.expo/',
+      '**/.vercel/',
       '**/coverage/',
       'packages/core/fixtures/',
     ],

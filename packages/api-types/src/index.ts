@@ -72,6 +72,27 @@ export const ClaimUpsertSchema = z.object({
   portion: z.number().int().nonnegative(),
 });
 
+/**
+ * 一件商品可被认领的「件数」。
+ * portion 的语义是**实际认领的件数**(不是相对权重),各家之和不得超过此值。
+ * - 整数件商品(3 ST → qtyMilli 3000):可分 3 件
+ * - 计重商品(2.871 kg → qtyMilli 2871):是一整块,只能整件认领 → 1
+ */
+export function claimableUnits(qtyMilli: number): number {
+  return qtyMilli > 0 && qtyMilli % 1000 === 0 ? qtyMilli / 1000 : 1;
+}
+
+/** 批量提交某个家庭的认领:整体替换该家庭在本账单的认领 */
+export const ClaimBatchSchema = z.object({
+  familyId: z.string(),
+  claims: z.array(
+    z.object({
+      itemId: z.string(),
+      portion: z.number().int().positive(),
+    }),
+  ),
+});
+
 export const AuthUserSchema = z.object({
   sub: z.string(),
   email: z.string(),
@@ -136,6 +157,7 @@ export type Item = z.infer<typeof ItemSchema>;
 export type Family = z.infer<typeof FamilySchema>;
 export type Claim = z.infer<typeof ClaimSchema>;
 export type ClaimUpsert = z.infer<typeof ClaimUpsertSchema>;
+export type ClaimBatch = z.infer<typeof ClaimBatchSchema>;
 export type AuthUser = z.infer<typeof AuthUserSchema>;
 export type SessionRequest = z.infer<typeof SessionRequestSchema>;
 export type PrintedTotals = z.infer<typeof PrintedTotalsSchema>;
