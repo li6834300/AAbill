@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createMockSuggester } from '../src/ai/mock-suggester.js';
 import { createOpenAISuggester } from '../src/ai/openai-suggester.js';
+import type { ClaimSuggester } from '../src/ai/suggester.js';
 import { selectSuggester } from '../src/ai/suggester.js';
 import { issueToken } from '../src/auth/jwt.js';
 import { TEST_SECRET, testApp } from './helpers.js';
@@ -29,7 +30,7 @@ const req = (path: string, body?: unknown, method = 'POST', auth = true) =>
 const PHOTO = { fileBase64: 'aGk=', mimeType: 'image/jpeg' };
 
 /** 建一张有 3 个可认领商品 + 1 个均摊商品的账单 */
-async function setup(suggester?: Parameters<typeof testApp>[0]['suggester']) {
+async function setup(suggester?: ClaimSuggester) {
   const app = testApp(suggester ? { suggester } : {});
   const bill = await j<Obj & { shareToken: string }>(
     await app.request(req('/bills', { title: 'Metro', taxCountry: 'DE' })),
