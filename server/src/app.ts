@@ -10,9 +10,17 @@ import {
   TaxCountrySetSchema,
   type AuthUser,
   type Bill,
+  type TaxCountry,
+  type TaxRates,
   type Item,
 } from '@aabill/api-types';
-import { DEFAULT_TAX_RATES, settle, toMilli, validate } from '@aabill/core';
+import {
+  bpFromPercent,
+  DEFAULT_TAX_RATES,
+  settle,
+  toMilli,
+  validate,
+} from '@aabill/core';
 import { Hono, type MiddlewareHandler } from 'hono';
 import { cors } from 'hono/cors';
 import { z } from 'zod';
@@ -88,6 +96,22 @@ const LOCKED_MSG = '账单已锁定,不可再修改';
 // 税率按账单国家取(NL 21/9,DE 19/7),国家未知就无从算税 —— 挡在校验/结算之前
 const NO_TAX_MSG = '尚未确定税制,请先选择账单所属国家(发票未能识别出)';
 
+/**
+ * 决定这张账单实际用哪套税率。
+ * 发票上印的百分比是权威 —— 国家表会过时(芬兰、爱沙尼亚近年都调过税率),
+ * 而发票印的就是当时当地真实收的税。两档都读得出才采用,否则整体回落到国家表。
+ */
+const ratesFrom = (
+  printed: { A: string; B: string },
+  country: TaxCountry | null,
+): TaxRates | null => {
+  try {
+    return { A: bpFromPercent(printed.A), B: bpFromPercent(printed.B) };
+  } catch {
+    return country ? DEFAULT_TAX_RATES[country] : null;
+  }
+};
+
 /** 路由薄壳:IO 与 schema 校验在此,金额业务一律调 core。 */
 export function createApp({
   repo,
@@ -158,6 +182,9 @@ export function createApp({
       title: parsed.data.title,
       // 建单时通常还没看到发票 —— 留空,等识别时 AI 读出(或用户后补)
       taxCountry: parsed.data.taxCountry ?? null,
+      taxRates: parsed.data.taxCountry
+        ? DEFAULT_TAX_RATES[parsed.data.taxCountry]
+        : null,
       status: 'draft',
       createdAt: new Date().toISOString(),
       shareToken: crypto.randomUUID(),
@@ -458,6 +485,8 @@ export function createApp({
     );
     if (!parsed.success) return c.json({ error: parsed.error.issues }, 400);
     bill.taxCountry = parsed.data.taxCountry;
+    // 人工选国家是显式意图,税率随之改用该国的表值
+    bill.taxRates = DEFAULT_TAX_RATES[parsed.data.taxCountry];
     return c.json(await repo.save(bill));
   });
 
@@ -503,6 +532,8 @@ export function createApp({
     if (bill.taxCountry === null && receipt.detectedTaxCountry !== 'UNKNOWN') {
       bill.taxCountry = receipt.detectedTaxCountry;
     }
+    // 税率:发票印刷值优先,读不出回落到国家表。国家读不出但税率读得出也能算钱。
+    bill.taxRates = ratesFrom(receipt.detectedRates, bill.taxCountry);
     bill.printedTotals = {
       netCents: toCents(receipt.totals.net),
       vatByClass: {
@@ -517,7 +548,7 @@ export function createApp({
   app.post('/bills/:id/lock', async (c) => {
     const bill = await loadBill(c, c.req.param('id'));
     if (!bill) return c.json({ error: 'bill not found' }, 404);
-    if (bill.taxCountry === null) return c.json({ error: NO_TAX_MSG }, 409);
+    if (bill.taxRates === null) return c.json({ error: NO_TAX_MSG }, 409);
     if (bill.families.length === 0 || bill.items.length === 0) {
       return c.json({ error: '账单尚未就绪(需先添加家庭与条目)' }, 409);
     }
@@ -535,7 +566,7 @@ export function createApp({
   app.get('/bills/:id/settlement', async (c) => {
     const bill = await loadBill(c, c.req.param('id'));
     if (!bill) return c.json({ error: 'bill not found' }, 404);
-    if (bill.taxCountry === null) return c.json({ error: NO_TAX_MSG }, 409);
+    if (bill.taxRates === null) return c.json({ error: NO_TAX_MSG }, 409);
     // 尚未就绪(无家庭或无条目)→ 409;详情页会据此隐藏汇总,不能让 core.settle 抛错 500
     if (bill.families.length === 0 || bill.items.length === 0) {
       return c.json({ error: '账单尚未就绪(需先添加家庭与条目)' }, 409);
@@ -565,7 +596,7 @@ export function createApp({
             }),
       })),
       families: bill.families.map((f) => f.id),
-      rates: DEFAULT_TAX_RATES[bill.taxCountry],
+      rates: bill.taxRates,
     });
     const nameById = new Map(bill.families.map((f) => [f.id, f.name]));
     return c.json({
@@ -580,7 +611,7 @@ export function createApp({
   app.get('/bills/:id/validate', async (c) => {
     const bill = await loadBill(c, c.req.param('id'));
     if (!bill) return c.json({ error: 'bill not found' }, 404);
-    if (bill.taxCountry === null) return c.json({ error: NO_TAX_MSG }, 409);
+    if (bill.taxRates === null) return c.json({ error: NO_TAX_MSG }, 409);
     if (!bill.printedTotals)
       return c.json({ error: '尚未录入发票印刷合计' }, 409);
     const result = validate({
@@ -592,7 +623,7 @@ export function createApp({
           printedLineNetCents: i.printedLineNetCents,
         }),
       })),
-      rates: DEFAULT_TAX_RATES[bill.taxCountry],
+      rates: bill.taxRates,
       printed: bill.printedTotals,
     });
     return c.json(result);

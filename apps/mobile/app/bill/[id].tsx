@@ -174,7 +174,8 @@ export default function BillScreen() {
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
       <Text style={styles.title}>{bill.title}</Text>
       <TaxCountryPicker
-        value={bill.taxCountry}
+        country={bill.taxCountry}
+        rates={bill.taxRates}
         onChange={async (c) => {
           setBusy('保存税制…');
           try {

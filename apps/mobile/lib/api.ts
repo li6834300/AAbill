@@ -5,6 +5,7 @@ import type {
   ClaimUpsert,
   ItemInput,
   PrintedTotals,
+  TaxCountry,
 } from '@aabill/api-types';
 import { authHeader, setToken } from './auth';
 
@@ -34,7 +35,7 @@ const json = (body: unknown): RequestInit => ({
 export interface BillSummary {
   id: string;
   title: string;
-  taxCountry: 'DE' | 'NL' | null;
+  taxCountry: TaxCountry | null;
   status: string;
   createdAt: string;
 }
@@ -104,7 +105,7 @@ export const api = {
   listBills: () => req<{ bills: BillSummary[] }>('/bills'),
   createBill: (body: { title: string }) => req<Bill>('/bills', json(body)),
   /** 发票没识别出税制时,由用户补选 */
-  setTaxCountry: (id: string, taxCountry: 'DE' | 'NL') =>
+  setTaxCountry: (id: string, taxCountry: TaxCountry) =>
     req<Bill>(`/bills/${id}/tax-country`, {
       method: 'PUT',
       body: JSON.stringify({ taxCountry }),
