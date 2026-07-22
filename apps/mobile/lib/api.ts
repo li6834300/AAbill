@@ -8,6 +8,7 @@ import type {
   TaxCountry,
 } from '@aabill/api-types';
 import { authHeader, setToken } from './auth';
+import { t } from './i18n';
 
 const BASE = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000';
 
@@ -89,7 +90,7 @@ async function exchangeSession(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ provider, idToken }),
   });
-  if (!res.ok) throw new Error(`登录失败 ${res.status}`);
+  if (!res.ok) throw new Error(t('login.failed', { status: res.status }));
   const data = (await res.json()) as { token: string; user: AuthUser };
   setToken(data.token);
   return data.user;

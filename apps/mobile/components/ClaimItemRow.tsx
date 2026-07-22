@@ -2,6 +2,7 @@ import { claimableUnits } from '@aabill/api-types';
 import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { centsToEuro, milliToDecimal } from '../lib/format';
+import { useLang } from '../lib/use-lang';
 import type { ItemView } from './ItemRow';
 
 /**
@@ -40,6 +41,7 @@ export function ClaimItemRow({
   const canDec = !locked && myPortion > 0;
 
   // 件数多时逐个点太累:允许直接填数字,确认时校验
+  const { t } = useLang();
   const [draftText, setDraftText] = useState(String(myPortion));
   const [inputError, setInputError] = useState<string | null>(null);
   useEffect(() => {
@@ -50,11 +52,11 @@ export function ClaimItemRow({
   const confirmTyped = () => {
     const n = Number(draftText.trim());
     if (!Number.isInteger(n) || n < 0) {
-      setInputError('请输入 0 或正整数');
+      setInputError(t('claim.invalidQty'));
       return;
     }
     if (n > remaining) {
-      setInputError(`最多可领 ${remaining} 件`);
+      setInputError(t('claim.maxQty', { n: remaining }));
       return;
     }
     setInputError(null);
@@ -70,11 +72,17 @@ export function ClaimItemRow({
             {item.nameZh ? `${item.nameZh} · ` : ''}
             {isWeight
               ? `${milliToDecimal(item.qtyMilli)} ${item.unit} × ${milliToDecimal(item.unitPriceMilli)} €`
-              : `${centsToEuro(unitPriceCents)} €/件 · 共 ${totalUnits} 件`}
+              : t('claim.perPiece', {
+                  price: centsToEuro(unitPriceCents),
+                  total: totalUnits,
+                })}
           </Text>
           {!item.isShared && othersPortions > 0 && (
             <Text style={styles.sub}>
-              别家已领 {othersPortions} 件 · 还剩 {remaining} 件
+              {t('claim.othersClaimed', {
+                others: othersPortions,
+                remaining,
+              })}
             </Text>
           )}
         </View>
@@ -84,14 +92,14 @@ export function ClaimItemRow({
       </View>
 
       {item.isShared ? (
-        <Text style={styles.shared}>均摊(全家庭平分,无需认领)</Text>
+        <Text style={styles.shared}>{t('claim.sharedItem')}</Text>
       ) : (
         !locked && (
           <View style={styles.line}>
             <Text style={styles.flex}>
-              <Text style={styles.sub}>我领 </Text>
+              <Text style={styles.sub}>{t('claim.iTake')}</Text>
               <Text style={styles.portion}>{myPortion}</Text>
-              <Text style={styles.sub}> 件</Text>
+              <Text style={styles.sub}>{t('claim.pieces')}</Text>
             </Text>
             <Pressable
               testID={`dec-${item.id}`}
@@ -114,7 +122,7 @@ export function ClaimItemRow({
       {!item.isShared && !locked && (
         <>
           <View style={styles.line}>
-            <Text style={styles.sub}>直接填:</Text>
+            <Text style={styles.sub}>{t('claim.typeDirectly')}</Text>
             <TextInput
               testID={`qty-input-${item.id}`}
               style={styles.qtyInput}
@@ -126,13 +134,15 @@ export function ClaimItemRow({
               keyboardType="number-pad"
               onSubmitEditing={confirmTyped}
             />
-            <Text style={styles.sub}>/ {remaining} 件</Text>
+            <Text style={styles.sub}>
+              {t('claim.ofPieces', { n: remaining })}
+            </Text>
             <Pressable
               testID={`qty-confirm-${item.id}`}
               style={styles.confirmBtn}
               onPress={confirmTyped}
             >
-              <Text style={styles.confirmText}>确认</Text>
+              <Text style={styles.confirmText}>{t('common.confirm')}</Text>
             </Pressable>
           </View>
           {!!inputError && <Text style={styles.inputError}>{inputError}</Text>}

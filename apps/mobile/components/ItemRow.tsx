@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import { centsToEuro, milliToDecimal } from '../lib/format';
+import { useLang } from '../lib/use-lang';
 
 export interface ItemView {
   id: string;
@@ -49,6 +50,7 @@ export function ItemRow({
   onPatch: (patch: ItemPatch) => void;
   onDelete: () => void;
 }) {
+  const { t } = useLang();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(item.name);
   const [nameZh, setNameZh] = useState(item.nameZh);
@@ -88,14 +90,14 @@ export function ItemRow({
           style={styles.input}
           value={name}
           onChangeText={setName}
-          placeholder="名称"
+          placeholder={t('item.name')}
         />
         <TextInput
           testID="edit-nameZh"
           style={styles.input}
           value={nameZh}
           onChangeText={setNameZh}
-          placeholder="中文名"
+          placeholder={t('item.nameTranslated')}
         />
         <View style={styles.line}>
           <TextInput
@@ -103,22 +105,22 @@ export function ItemRow({
             style={[styles.input, styles.flex]}
             value={qtyText}
             onChangeText={setQtyText}
-            placeholder="数量"
+            placeholder={t('item.qty')}
           />
           <TextInput
             testID="edit-price"
             style={[styles.input, styles.flex]}
             value={priceText}
             onChangeText={setPriceText}
-            placeholder="净单价 €"
+            placeholder={t('item.unitPrice')}
           />
         </View>
         <View style={styles.line}>
           <Pressable onPress={save} style={styles.btn}>
-            <Text style={styles.btnText}>保存</Text>
+            <Text style={styles.btnText}>{t('common.save')}</Text>
           </Pressable>
           <Pressable onPress={() => setEditing(false)} style={styles.btn}>
-            <Text>取消</Text>
+            <Text>{t('common.cancel')}</Text>
           </Pressable>
         </View>
       </View>
@@ -133,7 +135,8 @@ export function ItemRow({
           <Text style={styles.sub}>
             {item.nameZh ? `${item.nameZh} · ` : ''}
             {milliToDecimal(item.qtyMilli)} {item.unit} ×{' '}
-            {milliToDecimal(item.unitPriceMilli)} € · 税类 {item.taxClass}
+            {milliToDecimal(item.unitPriceMilli)} € ·{' '}
+            {t('item.taxClass', { cls: item.taxClass })}
             {item.source === 'ai' ? ' · AI' : ''}
           </Text>
         </View>
@@ -141,7 +144,7 @@ export function ItemRow({
       </View>
       <View style={styles.line}>
         <View style={[styles.line, styles.flex]}>
-          <Text style={styles.sub}>均摊</Text>
+          <Text style={styles.sub}>{t('item.shared')}</Text>
           <Switch
             testID="shared-switch"
             value={item.isShared}
@@ -149,10 +152,10 @@ export function ItemRow({
           />
         </View>
         <Pressable onPress={() => setEditing(true)} style={styles.btn}>
-          <Text>编辑</Text>
+          <Text>{t('common.edit')}</Text>
         </Pressable>
         <Pressable onPress={onDelete} style={styles.btn}>
-          <Text style={styles.danger}>删除</Text>
+          <Text style={styles.danger}>{t('common.delete')}</Text>
         </Pressable>
       </View>
     </View>

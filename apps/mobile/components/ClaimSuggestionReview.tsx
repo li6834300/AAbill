@@ -2,6 +2,7 @@ import { claimableUnits } from '@aabill/api-types';
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { milliToDecimal } from '../lib/format';
+import { t, useLang } from '../lib/use-lang';
 import type { ItemView } from './ItemRow';
 
 /**
@@ -13,7 +14,10 @@ function describeQty(i: ItemView): string {
   const isWeight = units === 1 && i.qtyMilli % 1000 !== 0;
   return isWeight
     ? `${milliToDecimal(i.qtyMilli)} ${i.unit} · ${milliToDecimal(i.unitPriceMilli)} €/${i.unit}`
-    : `${units} 件 · ${milliToDecimal(i.unitPriceMilli)} €/件`;
+    : t('suggest.perPiece', {
+        n: units,
+        price: milliToDecimal(i.unitPriceMilli),
+      });
 }
 
 /**
@@ -30,6 +34,7 @@ export function ClaimSuggestionReview({
   onConfirm: (itemIds: string[]) => void;
   onCancel: () => void;
 }) {
+  useLang(); // 语言一变,下面的 label() 结果也要跟着重算
   const [selected, setSelected] = useState<Set<string>>(
     () => new Set(items.map((i) => i.id)),
   );
@@ -46,14 +51,10 @@ export function ClaimSuggestionReview({
 
   return (
     <View style={styles.panel}>
-      <Text style={styles.warn}>
-        ⚠️ 以下是 AI 看照片猜的,可能有误或有遗漏 —— 请你逐项确认后再认领。
-      </Text>
+      <Text style={styles.warn}>{t('suggest.warning')}</Text>
 
       {items.length === 0 ? (
-        <Text style={styles.empty}>
-          AI 没认出账单里的任何商品。可以换个角度重拍,或直接在下面手动勾选。
-        </Text>
+        <Text style={styles.empty}>{t('suggest.none')}</Text>
       ) : (
         items.map((i) => (
           <Pressable
@@ -78,14 +79,16 @@ export function ClaimSuggestionReview({
 
       <View style={styles.actions}>
         <Pressable style={styles.btn} onPress={onCancel}>
-          <Text>取消</Text>
+          <Text>{t('common.cancel')}</Text>
         </Pressable>
         {items.length > 0 && (
           <Pressable
             style={[styles.primary, chosen.length === 0 && styles.disabled]}
             onPress={() => chosen.length > 0 && onConfirm(chosen)}
           >
-            <Text style={styles.primaryText}>确认认领({chosen.length})</Text>
+            <Text style={styles.primaryText}>
+              {t('suggest.confirm', { n: chosen.length })}
+            </Text>
           </Pressable>
         )}
       </View>

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useLang } from '../lib/use-lang';
 
 export interface FamilyView {
   id: string;
@@ -17,6 +18,7 @@ export function FamilyChips({
   onAdd: (name: string) => void;
   onRemove: (id: string) => void;
 }) {
+  const { t } = useLang();
   const [name, setName] = useState('');
   const add = () => {
     const trimmed = name.trim();
@@ -46,10 +48,10 @@ export function FamilyChips({
           style={styles.input}
           value={name}
           onChangeText={setName}
-          placeholder="家庭名(如 Rio家)"
+          placeholder={t('family.placeholder')}
         />
         <Pressable onPress={add} style={styles.btn}>
-          <Text style={styles.btnText}>添加</Text>
+          <Text style={styles.btnText}>{t('common.add')}</Text>
         </Pressable>
       </View>
     </View>

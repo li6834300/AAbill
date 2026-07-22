@@ -10,6 +10,8 @@ import {
   View,
 } from 'react-native';
 import { api, type BillSummary } from '../lib/api';
+import { LanguagePicker } from '../components/LanguagePicker';
+import { useLang } from '../lib/use-lang';
 import { clearToken, getToken } from '../lib/auth';
 
 const GOOGLE_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID;
@@ -18,6 +20,7 @@ const USE_GOOGLE = !!GOOGLE_CLIENT_ID && Platform.OS === 'web';
 
 /** PRD E1(简版):账单列表 + 新建。未登录先走登录。 */
 export default function BillListScreen() {
+  const { t } = useLang();
   const router = useRouter();
   const [bills, setBills] = useState<BillSummary[]>([]);
   const [title, setTitle] = useState('');
@@ -85,16 +88,17 @@ export default function BillListScreen() {
   if (!authed) {
     return (
       <View style={styles.screen}>
-        <Text style={styles.loginTitle}>登录 AAbill</Text>
+        <Text style={styles.loginTitle}>{t('login.title')}</Text>
+        <LanguagePicker />
         {error && <Text style={styles.error}>{error}</Text>}
         {USE_GOOGLE ? (
           <>
-            <Text style={styles.sub}>用 Google 账号登录</Text>
+            <Text style={styles.sub}>{t('login.google')}</Text>
             <View ref={googleBtnRef} style={styles.googleBtn} />
           </>
         ) : (
           <>
-            <Text style={styles.sub}>开发登录:输入邮箱即可</Text>
+            <Text style={styles.sub}>{t('login.devHint')}</Text>
             <View style={styles.createRow}>
               <TextInput
                 style={styles.input}
@@ -105,7 +109,7 @@ export default function BillListScreen() {
                 keyboardType="email-address"
               />
               <Pressable style={styles.btn} onPress={doLogin}>
-                <Text style={styles.btnText}>登录</Text>
+                <Text style={styles.btnText}>{t('login.submit')}</Text>
               </Pressable>
             </View>
           </>
@@ -129,9 +133,10 @@ export default function BillListScreen() {
   return (
     <View style={styles.screen}>
       <View style={styles.headerRow}>
-        <Text style={styles.sub}>我的账单</Text>
+        <Text style={styles.sub}>{t('bills.mine')}</Text>
+        <LanguagePicker />
         <Pressable onPress={logout}>
-          <Text style={styles.linkText}>退出登录</Text>
+          <Text style={styles.linkText}>{t('bills.logout')}</Text>
         </Pressable>
       </View>
       {error && <Text style={styles.error}>{error}</Text>}
@@ -140,17 +145,17 @@ export default function BillListScreen() {
           style={styles.input}
           value={title}
           onChangeText={setTitle}
-          placeholder="账单标题(如 Metro 05-16)"
+          placeholder={t('bills.titlePlaceholder')}
         />
         <Pressable style={styles.btn} onPress={create}>
-          <Text style={styles.btnText}>新建</Text>
+          <Text style={styles.btnText}>{t('bills.create')}</Text>
         </Pressable>
       </View>
       <FlatList
         data={bills}
         keyExtractor={(b) => b.id}
         ListEmptyComponent={
-          <Text style={styles.empty}>还没有账单,拍一张发票开始吧。</Text>
+          <Text style={styles.empty}>{t('bills.empty')}</Text>
         }
         renderItem={({ item }) => (
           <Pressable
@@ -160,7 +165,7 @@ export default function BillListScreen() {
             <View style={styles.flex}>
               <Text style={styles.billTitle}>{item.title}</Text>
               <Text style={styles.sub}>
-                {item.taxCountry ?? '税制待定'} · {item.status} ·{' '}
+                {item.taxCountry ?? t('bills.taxPending')} · {item.status} ·{' '}
                 {item.createdAt.slice(0, 10)}
               </Text>
             </View>
