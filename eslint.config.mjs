@@ -28,5 +28,16 @@ export default tseslint.config(
     },
     rules: { '@typescript-eslint/no-require-imports': 'off' },
   },
+  {
+    // 构建期脚本(Node 环境,不进产物)
+    files: ['scripts/**/*.mjs'],
+    languageOptions: {
+      globals: {
+        fetch: 'readonly',
+        console: 'readonly',
+        process: 'readonly',
+      },
+    },
+  },
   prettier,
 );

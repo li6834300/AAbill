@@ -13,7 +13,8 @@
     "lint": "eslint . && prettier --check .",
     "format": "prettier --write .",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "start": "npm start --workspace=server"
+    "start": "npm start --workspace=server",
+    "sync:vat-rates": "node scripts/sync-vat-rates.mjs"
   },
   "engines": {
     "node": "22.x"
