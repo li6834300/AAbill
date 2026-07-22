@@ -6,10 +6,10 @@ import { ClaimSuggestionReview } from '../ClaimSuggestionReview';
 // PRD 二期 PRO:AI 看照片预选商品,但**必须人工确认**才认领。
 // 组件职责:默认全选建议项、可逐项取消、显著提示 AI 可能有误、确认时回传最终选中的 id。
 
-const item = (id: string, name: string, nameZh = '') => ({
+const item = (id: string, name: string, nameTranslated = '') => ({
   id,
   name,
-  nameZh,
+  nameTranslated,
   qtyMilli: 1000,
   unit: 'ST',
   unitPriceMilli: 1990,

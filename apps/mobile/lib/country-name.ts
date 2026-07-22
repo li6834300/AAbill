@@ -18,3 +18,17 @@ export function countryName(code: TaxCountry): string {
     return TAX_COUNTRY_NAMES[code];
   }
 }
+
+/**
+ * 语言名,按当前界面语言表述(界面为中文时,'de' → "德语")。
+ * 同样交给 Intl,不手写 4×4 的对照表。
+ */
+export function languageName(code: string): string {
+  try {
+    return (
+      new Intl.DisplayNames([getLang()], { type: 'language' }).of(code) ?? code
+    );
+  } catch {
+    return code;
+  }
+}

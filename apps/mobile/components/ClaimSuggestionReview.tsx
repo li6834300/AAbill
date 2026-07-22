@@ -69,7 +69,7 @@ export function ClaimSuggestionReview({
             <View style={styles.flex}>
               <Text style={styles.name}>{i.name}</Text>
               <Text style={styles.sub}>
-                {i.nameZh ? `${i.nameZh} · ` : ''}
+                {i.nameTranslated ? `${i.nameTranslated} · ` : ''}
                 {describeQty(i)}
               </Text>
             </View>

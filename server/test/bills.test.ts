@@ -98,7 +98,7 @@ describe('条目校对编辑(PRD A2)', () => {
     const item = await json<Obj>(res);
     expect(item).toMatchObject({
       name: '10l ARO RAPSOEL',
-      nameZh: '',
+      nameTranslated: '',
       unit: 'ST',
       isShared: false,
       source: 'manual',
@@ -122,7 +122,7 @@ describe('条目校对编辑(PRD A2)', () => {
 
     const res = await app.request(
       send(`/bills/${id}/items/${item.id}`, 'PATCH', {
-        nameZh: '鸡蛋',
+        nameTranslated: '鸡蛋',
         isShared: true,
         unitPriceMilli: 2690,
       }),
@@ -130,7 +130,7 @@ describe('条目校对编辑(PRD A2)', () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toMatchObject({
       name: 'Eier',
-      nameZh: '鸡蛋',
+      nameTranslated: '鸡蛋',
       isShared: true,
       unitPriceMilli: 2690,
     });
@@ -143,7 +143,7 @@ describe('条目校对编辑(PRD A2)', () => {
       await app.request(
         post(`/bills/${id}/items`, {
           name: 'Eier',
-          nameZh: '散养鸡蛋',
+          nameTranslated: '散养鸡蛋',
           qtyMilli: 2871,
           unit: 'KG',
           unitPriceMilli: 2790,
@@ -161,7 +161,7 @@ describe('条目校对编辑(PRD A2)', () => {
     );
     expect(res.status).toBe(200);
     expect(await res.json()).toMatchObject({
-      nameZh: '散养鸡蛋',
+      nameTranslated: '散养鸡蛋',
       unit: 'KG',
       isShared: true,
       unitPriceMilli: 2690,

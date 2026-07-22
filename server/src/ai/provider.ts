@@ -1,4 +1,4 @@
-import type { ParsedReceipt } from '@aabill/api-types';
+import type { Lang, ParsedReceipt } from '@aabill/api-types';
 import { createMockParser } from './mock.js';
 import { createOpenAIParser } from './openai.js';
 
@@ -7,6 +7,8 @@ export interface ParseInput {
   fileBase64: string;
   /** image/* 或 application/pdf */
   mimeType: string;
+  /** 译名的目标语言;由账单决定,不跟界面语言走 */
+  lang?: Lang;
 }
 
 /** 识别 provider 接口:OpenAI 为主,DeepSeek 备选,测试/本地默认 mock。 */

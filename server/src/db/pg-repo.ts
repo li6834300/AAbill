@@ -11,6 +11,7 @@ interface BillRow {
   title: string;
   status: Bill['status'];
   tax_country: Bill['taxCountry'];
+  translation_lang: Bill['translationLang'];
   tax_rate_a_bp: number | null;
   tax_rate_b_bp: number | null;
   share_token: string;
@@ -50,7 +51,7 @@ export function createPostgresRepo(pool: Pool): BillRepo {
       items: items.rows.map((r): Item => ({
         id: r.id as string,
         name: r.name as string,
-        nameZh: r.name_zh as string,
+        nameTranslated: r.name_translated as string,
         qtyMilli: r.qty_milli as number,
         unit: r.unit as string,
         unitPriceMilli: r.unit_price_milli as number,
@@ -78,6 +79,7 @@ export function createPostgresRepo(pool: Pool): BillRepo {
       ownerId: row.owner_id,
       title: row.title,
       taxCountry: row.tax_country,
+      translationLang: row.translation_lang,
       taxRates:
         row.tax_rate_a_bp === null || row.tax_rate_b_bp === null
           ? null
@@ -114,7 +116,7 @@ export function createPostgresRepo(pool: Pool): BillRepo {
     for (const [position, i] of bill.items.entries()) {
       await client.query(
         `insert into items
-           (id, bill_id, position, name, name_zh, qty_milli, unit,
+           (id, bill_id, position, name, name_translated, qty_milli, unit,
             unit_price_milli, printed_line_net_cents, tax_class, is_shared, source)
          values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
         [
@@ -122,7 +124,7 @@ export function createPostgresRepo(pool: Pool): BillRepo {
           bill.id,
           position,
           i.name,
-          i.nameZh,
+          i.nameTranslated,
           i.qtyMilli,
           i.unit,
           i.unitPriceMilli,
@@ -149,14 +151,16 @@ export function createPostgresRepo(pool: Pool): BillRepo {
         `insert into bills
            (id, owner_id, title, status, tax_country, share_token, invoice_url,
             invoice_net_cents, invoice_vat_a_cents, invoice_vat_b_cents,
-            invoice_gross_cents, created_at, tax_rate_a_bp, tax_rate_b_bp)
-         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+            invoice_gross_cents, created_at, tax_rate_a_bp, tax_rate_b_bp,
+            translation_lang)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
          on conflict (id) do update set
            title = excluded.title,
            status = excluded.status,
            tax_country = excluded.tax_country,
            tax_rate_a_bp = excluded.tax_rate_a_bp,
            tax_rate_b_bp = excluded.tax_rate_b_bp,
+           translation_lang = excluded.translation_lang,
            invoice_url = excluded.invoice_url,
            invoice_net_cents = excluded.invoice_net_cents,
            invoice_vat_a_cents = excluded.invoice_vat_a_cents,
@@ -177,6 +181,7 @@ export function createPostgresRepo(pool: Pool): BillRepo {
           bill.createdAt,
           bill.taxRates?.A ?? null,
           bill.taxRates?.B ?? null,
+          bill.translationLang,
         ],
       );
       await writeChildren(client, bill);

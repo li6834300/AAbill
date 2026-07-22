@@ -4,6 +4,7 @@ import type {
   Claim,
   ClaimUpsert,
   ItemInput,
+  Lang,
   PrintedTotals,
   TaxCountry,
 } from '@aabill/api-types';
@@ -112,8 +113,9 @@ export const api = {
       body: JSON.stringify({ taxCountry, reducedRateBp }),
     }),
   getBill: (id: string) => req<Bill>(`/bills/${id}`),
-  parse: (id: string, fileBase64: string, mimeType: string) =>
-    req<Bill>(`/bills/${id}/parse`, json({ fileBase64, mimeType })),
+  /** lang 决定商品译名的语言,并记在账单上(切界面语言不重译,需重新识别) */
+  parse: (id: string, fileBase64: string, mimeType: string, lang: Lang) =>
+    req<Bill>(`/bills/${id}/parse`, json({ fileBase64, mimeType, lang })),
   putTotals: (id: string, totals: PrintedTotals) =>
     req<Bill>(`/bills/${id}/totals`, {
       method: 'PUT',

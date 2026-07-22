@@ -183,7 +183,7 @@ describe('mock suggester', () => {
     const candidates = ['a', 'b', 'c'].map((id) => ({
       id,
       name: id.toUpperCase(),
-      nameZh: '',
+      nameTranslated: '',
       qtyLabel: '1 件',
       priceLabel: '1.00 €/件',
     }));
@@ -198,21 +198,21 @@ describe('openai suggester(stub fetch)', () => {
     {
       id: 'id-milk',
       name: 'ARO MILCH',
-      nameZh: '牛奶',
+      nameTranslated: '牛奶',
       qtyLabel: '1 件',
       priceLabel: '1.29 €/件',
     },
     {
       id: 'id-eggs',
       name: '10er Eier',
-      nameZh: '鸡蛋',
+      nameTranslated: '鸡蛋',
       qtyLabel: '10 件',
       priceLabel: '2.79 €/件',
     },
     {
       id: 'id-beef',
       name: 'RINDER FILET',
-      nameZh: '牛柳',
+      nameTranslated: '牛柳',
       qtyLabel: '1.952 KG',
       priceLabel: '12.291 €/KG',
     },

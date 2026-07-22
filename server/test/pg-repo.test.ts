@@ -47,6 +47,7 @@ const sampleBill = (): Bill => ({
   title: 'Metro 05-16',
   taxCountry: 'DE',
   taxRates: { A: 1900, B: 700 },
+  translationLang: 'zh',
   status: 'draft',
   createdAt: new Date().toISOString(),
   shareToken: crypto.randomUUID(),
@@ -84,7 +85,7 @@ describe('PostgresBillRepo', () => {
       {
         id: crypto.randomUUID(),
         name: 'MC HAE.OBERKEULE',
-        nameZh: '鸡大腿',
+        nameTranslated: '鸡大腿',
         qtyMilli: 2871,
         unit: 'KG',
         unitPriceMilli: 6488,
@@ -96,7 +97,7 @@ describe('PostgresBillRepo', () => {
       {
         id: crypto.randomUUID(),
         name: 'Eier',
-        nameZh: '鸡蛋',
+        nameTranslated: '鸡蛋',
         qtyMilli: 2000,
         unit: 'PG',
         unitPriceMilli: 2790,

@@ -46,7 +46,7 @@ describe('ItemInputSchema', () => {
     });
     expect(parsed).toEqual({
       name: '10l ARO RAPSOEL',
-      nameZh: '',
+      nameTranslated: '',
       qtyMilli: 1000,
       unit: 'ST',
       unitPriceMilli: 12490,
@@ -112,7 +112,7 @@ describe('ParsedReceiptSchema(AI 识别输出,十进制字符串)', () => {
     items: [
       {
         name: 'MC HAE.OBERKEULE',
-        nameZh: '鸡大腿',
+        nameTranslated: '鸡大腿',
         qty: '2.871',
         unit: 'KG',
         unitPriceNet: '6.488',

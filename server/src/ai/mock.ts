@@ -1,15 +1,24 @@
-import type { ParsedReceipt } from '@aabill/api-types';
+import type { Lang, ParsedReceipt } from '@aabill/api-types';
 import type { ReceiptParser } from './provider.js';
+
+/** 三行商品的各语言译名。mock 也遵守目标语言,否则本地开发会看到
+ *  「荷兰语账单配中文商品名」这种真实 provider 不会出现的假象。 */
+const NAMES: Record<Lang, [string, string, string]> = {
+  zh: ['铝箔纸', '鸡大腿', '散养鸡蛋 10个'],
+  en: ['Aluminium foil', 'Chicken thighs', 'Free-range eggs, 10'],
+  nl: ['Aluminiumfolie', 'Kippenbouten', 'Scharreleieren, 10'],
+  de: ['Alufolie', 'Hähnchenschenkel', 'Freilandeier, 10er'],
+};
 
 /** 确定性 mock:本地开发与测试用,数据取自 Metro 夹具的三行缩影。 */
 export function createMockParser(): ReceiptParser {
-  const receipt: ParsedReceipt = {
+  const build = (lang: Lang): ParsedReceipt => ({
     detectedTaxCountry: 'DE',
     detectedRates: { A: '19,00', B: '7,00' },
     items: [
       {
         name: '10mx30cm KRAFT-ALUFOLIE',
-        nameZh: '铝箔纸',
+        nameTranslated: NAMES[lang][0],
         qty: '1',
         unit: 'ST',
         unitPriceNet: '1.99',
@@ -18,7 +27,7 @@ export function createMockParser(): ReceiptParser {
       },
       {
         name: 'MC HAE.OBERKEULE',
-        nameZh: '鸡大腿',
+        nameTranslated: NAMES[lang][1],
         qty: '2.871',
         unit: 'KG',
         unitPriceNet: '6.488',
@@ -27,7 +36,7 @@ export function createMockParser(): ReceiptParser {
       },
       {
         name: '10er Eier bunt M Boden',
-        nameZh: '散养鸡蛋 10个',
+        nameTranslated: NAMES[lang][2],
         qty: '2',
         unit: 'PG',
         unitPriceNet: '2.79',
@@ -36,8 +45,8 @@ export function createMockParser(): ReceiptParser {
       },
     ],
     totals: { net: '26.20', vatA: '0.38', vatB: '1.69', gross: '28.27' },
-  };
+  });
   return {
-    parseReceipt: async () => structuredClone(receipt),
+    parseReceipt: async (input) => build(input.lang ?? 'en'),
   };
 }

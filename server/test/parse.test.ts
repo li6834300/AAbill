@@ -20,7 +20,7 @@ const RECEIPT: ParsedReceipt = {
   items: [
     {
       name: '10mx30cm KRAFT-ALUFOLIE',
-      nameZh: '铝箔纸',
+      nameTranslated: '铝箔纸',
       qty: '1',
       unit: 'ST',
       unitPriceNet: '1.99',
@@ -29,7 +29,7 @@ const RECEIPT: ParsedReceipt = {
     },
     {
       name: 'MC HAE.OBERKEULE',
-      nameZh: '鸡大腿',
+      nameTranslated: '鸡大腿',
       qty: '2.871',
       unit: 'KG',
       unitPriceNet: '6.488',
@@ -38,7 +38,7 @@ const RECEIPT: ParsedReceipt = {
     },
     {
       name: '10er Eier',
-      nameZh: '鸡蛋',
+      nameTranslated: '鸡蛋',
       qty: '2',
       unit: 'PG',
       unitPriceNet: '2.79',
@@ -115,7 +115,7 @@ describe('POST /bills/:id/parse', () => {
     expect(bill.items).toHaveLength(3);
     expect(bill.items[1]).toMatchObject({
       name: 'MC HAE.OBERKEULE',
-      nameZh: '鸡大腿',
+      nameTranslated: '鸡大腿',
       qtyMilli: 2871,
       unit: 'KG',
       unitPriceMilli: 6488,
@@ -226,6 +226,7 @@ describe('POST /bills/:id/parse', () => {
     expect(last()).toEqual({
       fileBase64: 'JVBERi0x',
       mimeType: 'application/pdf',
+      lang: 'en', // 未指定语言时的默认值,一并透传给 provider
     });
   });
 

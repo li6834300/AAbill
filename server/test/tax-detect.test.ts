@@ -31,7 +31,7 @@ const receiptFrom = (
   items: [
     {
       name: 'Eier',
-      nameZh: '鸡蛋',
+      nameTranslated: '鸡蛋',
       qty: '2',
       unit: 'PG',
       unitPriceNet: '2.79',
