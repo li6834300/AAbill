@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import fixture from '../fixtures/metro-de-2026-05-16.json';
 import {
+  bpFromPercent,
   DEFAULT_TAX_RATES,
   lineNetCents,
   toMilli,
@@ -62,27 +63,87 @@ describe('lineNetCents:行净额 = qty × 折后净单价,四舍五入到分', (
   });
 });
 
-describe('vatCents:税额 = 净额 × 整数百分比税率,四舍五入到分', () => {
+describe('vatCents:税额 = 净额 × 基点税率,四舍五入到分', () => {
   it('常规取整', () => {
-    expect(vatCents(308, 19)).toBe(59); // 0.5852 → 0.59
-    expect(vatCents(51412, 7)).toBe(3599); // 35.9884 → 35.99
+    expect(vatCents(308, 1900)).toBe(59); // 0.5852 → 0.59
+    expect(vatCents(51412, 700)).toBe(3599); // 35.9884 → 35.99
+  });
+
+  it('非整数百分比全程整数运算', () => {
+    // 法国 5.5%:100.00 € 净额 → 5.50 €
+    expect(vatCents(10000, 550)).toBe(550);
+    // 瑞士 8.1%:19.99 € → 1.61919 → 1.62
+    expect(vatCents(1999, 810)).toBe(162);
   });
 
   it('恰好半分:进位;负净额对称', () => {
-    expect(vatCents(50, 1)).toBe(1); // 0.005 → 0.01
-    expect(vatCents(-50, 1)).toBe(-1);
+    expect(vatCents(50, 100)).toBe(1); // 0.005 → 0.01
+    expect(vatCents(-50, 100)).toBe(-1);
   });
 
   it('零税率与零净额', () => {
     expect(vatCents(1000, 0)).toBe(0);
-    expect(vatCents(0, 19)).toBe(0);
+    expect(vatCents(0, 1900)).toBe(0);
   });
 });
 
-describe('税率配置(按账单国家,不硬编码进计算)', () => {
-  it('DE:A 19% / B 7%;NL:A 21% / B 9%', () => {
-    expect(DEFAULT_TAX_RATES.DE).toEqual({ A: 19, B: 7 });
-    expect(DEFAULT_TAX_RATES.NL).toEqual({ A: 21, B: 9 });
+describe('税率用基点(bp)表示,不用整数百分比', () => {
+  // 法国 5.5%、瑞士 8.1%、芬兰 25.5% 都不是整数 —— 整数百分比装不下,
+  // 浮点百分比又会把误差带进分账取整。故一律整数基点:19% = 1900bp。
+  it('DE:A 1900 / B 700;NL:A 2100 / B 900', () => {
+    expect(DEFAULT_TAX_RATES.DE).toEqual({ A: 1900, B: 700 });
+    expect(DEFAULT_TAX_RATES.NL).toEqual({ A: 2100, B: 900 });
+  });
+
+  it('覆盖非整数税率的国家', () => {
+    expect(DEFAULT_TAX_RATES.FR.B).toBe(550); // 5.5%
+    expect(DEFAULT_TAX_RATES.CH).toEqual({ A: 810, B: 260 }); // 8.1% / 2.6%
+    expect(DEFAULT_TAX_RATES.IE.B).toBe(1350); // 13.5%
+  });
+
+  it('丹麦没有低税率档:两档相同', () => {
+    expect(DEFAULT_TAX_RATES.DK).toEqual({ A: 2500, B: 2500 });
+  });
+
+  it('每个国家的低税率都不高于标准税率,且都在合理区间', () => {
+    for (const [country, r] of Object.entries(DEFAULT_TAX_RATES)) {
+      expect(r.B, country).toBeLessThanOrEqual(r.A);
+      expect(r.A, country).toBeGreaterThan(0);
+      expect(r.A, country).toBeLessThanOrEqual(2800);
+      expect(Number.isInteger(r.A), country).toBe(true);
+      expect(Number.isInteger(r.B), country).toBe(true);
+    }
+  });
+});
+
+describe('bpFromPercent:发票印刷的百分比 → 基点', () => {
+  // 发票上的实际税率才是权威 —— 国家表只是读不出时的兜底。
+  it('整数与小数百分比', () => {
+    expect(bpFromPercent('19')).toBe(1900);
+    expect(bpFromPercent('5.5')).toBe(550);
+    expect(bpFromPercent('8.10')).toBe(810);
+  });
+
+  it('欧洲发票用逗号做小数点', () => {
+    expect(bpFromPercent('19,00')).toBe(1900);
+    expect(bpFromPercent('25,5')).toBe(2550);
+  });
+
+  it('带百分号与空白', () => {
+    expect(bpFromPercent(' 7,0 % ')).toBe(700);
+  });
+
+  it('零税率(英国/爱尔兰食品)是合法值', () => {
+    expect(bpFromPercent('0')).toBe(0);
+    expect(bpFromPercent('0,00')).toBe(0);
+  });
+
+  it('读不出来就抛错,不猜', () => {
+    expect(() => bpFromPercent('')).toThrow();
+    expect(() => bpFromPercent('abc')).toThrow();
+    expect(() => bpFromPercent('19.005')).toThrow(); // 超过 2 位小数
+    expect(() => bpFromPercent('-19')).toThrow();
+    expect(() => bpFromPercent('120')).toThrow(); // 不存在的税率
   });
 });
 
