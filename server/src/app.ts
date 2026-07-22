@@ -6,6 +6,7 @@ import {
   ItemInputSchema,
   ItemPatchSchema,
   PrintedTotalsSchema,
+  LangSchema,
   SessionRequestSchema,
   TaxCountrySetSchema,
   type AuthUser,
@@ -52,6 +53,9 @@ type Env = { Variables: { user: AuthUser } };
 
 const ParseBodySchema = z.object({
   fileBase64: z.string().min(1),
+  // 译名语言由调用方(界面)指定;不给就英文 —— 对陌生用户最安全的回落。
+  // 不支持的语言直接 400,不悄悄回落,否则用户会以为翻译了其实没有。
+  lang: LangSchema.default('en'),
   // 发票是图片或 PDF(PRD A1);其余类型拒绝
   mimeType: z
     .string()
@@ -186,6 +190,7 @@ export function createApp({
       ownerId: c.get('user').sub,
       title: parsed.data.title,
       // 建单时通常还没看到发票 —— 留空,等识别时 AI 读出(或用户后补)
+      translationLang: null,
       taxCountry: parsed.data.taxCountry ?? null,
       taxRates: parsed.data.taxCountry
         ? DEFAULT_TAX_RATES[parsed.data.taxCountry]
@@ -349,7 +354,7 @@ export function createApp({
         return {
           id: i.id,
           name: i.name,
-          nameZh: i.nameZh,
+          nameTranslated: i.nameTranslated,
           qtyLabel: isWeight
             ? `${decimalOf(i.qtyMilli)} ${i.unit}`
             : `${units} 件`,
@@ -547,7 +552,7 @@ export function createApp({
       id: crypto.randomUUID(),
       source: 'ai',
       name: it.name,
-      nameZh: it.nameZh,
+      nameTranslated: it.nameTranslated,
       qtyMilli: toMilli(it.qty),
       unit: it.unit,
       unitPriceMilli: toMilli(it.unitPriceNet),
@@ -556,6 +561,7 @@ export function createApp({
       isShared: false,
     }));
     bill.items = [...bill.items.filter((i) => i.source !== 'ai'), ...aiItems];
+    bill.translationLang = parsed.data.lang;
     // 税制:AI 读出即用,但**不覆盖**已确定的值 —— 人工设定优先于重新识别
     if (bill.taxCountry === null && receipt.detectedTaxCountry !== 'UNKNOWN') {
       bill.taxCountry = receipt.detectedTaxCountry;

@@ -8,7 +8,7 @@ import { ItemRow } from '../ItemRow';
 const item = {
   id: 'i1',
   name: '10er Eier bunt M Boden',
-  nameZh: '散养鸡蛋 10个',
+  nameTranslated: '散养鸡蛋 10个',
   qtyMilli: 2000,
   unit: 'PG',
   unitPriceMilli: 2790,
@@ -36,11 +36,14 @@ describe('ItemRow', () => {
     const onPatch = jest.fn();
     render(<ItemRow item={item} onPatch={onPatch} onDelete={jest.fn()} />);
     fireEvent.press(screen.getByText('编辑'));
-    fireEvent.changeText(screen.getByTestId('edit-nameZh'), '鸡蛋(散养)');
+    fireEvent.changeText(
+      screen.getByTestId('edit-nameTranslated'),
+      '鸡蛋(散养)',
+    );
     fireEvent.changeText(screen.getByTestId('edit-price'), '2.69');
     fireEvent.press(screen.getByText('保存'));
     expect(onPatch).toHaveBeenCalledWith({
-      nameZh: '鸡蛋(散养)',
+      nameTranslated: '鸡蛋(散养)',
       unitPriceMilli: 2690,
     });
   });

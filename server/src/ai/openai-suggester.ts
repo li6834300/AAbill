@@ -29,7 +29,7 @@ export function createOpenAISuggester(opts: {
       const list = candidates
         .map(
           (c, i) =>
-            `${i + 1}. ${c.name}${c.nameZh ? `(${c.nameZh})` : ''} — ${c.qtyLabel} — ${c.priceLabel}`,
+            `${i + 1}. ${c.name}${c.nameTranslated ? `(${c.nameTranslated})` : ''} — ${c.qtyLabel} — ${c.priceLabel}`,
         )
         .join('\n');
 

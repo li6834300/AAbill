@@ -62,7 +62,11 @@ describe('识别时把目标语言传给 AI', () => {
     const after = await j<{
       translationLang: string;
       items: Array<{ nameTranslated: string }>;
-    }>(await app.request(req(`/bills/${bill.id}/parse`, { ...PHOTO, lang: 'nl' })));
+    }>(
+      await app.request(
+        req(`/bills/${bill.id}/parse`, { ...PHOTO, lang: 'nl' }),
+      ),
+    );
 
     expect(seen).toEqual(['nl']);
     expect(after.translationLang).toBe('nl');
@@ -98,7 +102,11 @@ describe('识别时把目标语言传给 AI', () => {
     const after = await j<{
       translationLang: string;
       items: Array<{ nameTranslated: string }>;
-    }>(await app.request(req(`/bills/${bill.id}/parse`, { ...PHOTO, lang: 'de' })));
+    }>(
+      await app.request(
+        req(`/bills/${bill.id}/parse`, { ...PHOTO, lang: 'de' }),
+      ),
+    );
 
     expect(after.translationLang).toBe('de');
     expect(after.items[0]?.nameTranslated).toBe('[de] eggs');

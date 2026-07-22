@@ -69,7 +69,7 @@ export function ClaimItemRow({
         <View style={styles.flex}>
           <Text style={styles.name}>{item.name}</Text>
           <Text style={styles.sub}>
-            {item.nameZh ? `${item.nameZh} · ` : ''}
+            {item.nameTranslated ? `${item.nameTranslated} · ` : ''}
             {isWeight
               ? `${milliToDecimal(item.qtyMilli)} ${item.unit} × ${milliToDecimal(item.unitPriceMilli)} €`
               : t('claim.perPiece', {

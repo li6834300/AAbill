@@ -153,6 +153,9 @@ const zh = {
   'tax.multiReducedHint':
     '食品适用哪一档因商品而异,自动挑一档会算错钱。请对照发票选择:',
 
+  'translation.mismatch': '本账单的商品译名是{lang},与当前界面语言不同。',
+  'translation.rescan': '重新识别发票以翻译成{lang}(会覆盖 AI 条目)',
+
   'lang.label': '语言',
 } as const;
 
@@ -303,6 +306,11 @@ const en: Catalog = {
   'tax.multiReduced': '{country} has several reduced rates',
   'tax.multiReducedHint':
     'Which one applies depends on the goods, and guessing would get the money wrong. Pick the one on your receipt:',
+
+  'translation.mismatch':
+    'Item names on this bill are translated into {lang}, which differs from your interface language.',
+  'translation.rescan':
+    'Re-scan the receipt to translate into {lang} (replaces AI rows)',
 
   'lang.label': 'Language',
 };
@@ -456,6 +464,11 @@ const nl: Catalog = {
   'tax.multiReduced': '{country} heeft meerdere verlaagde tarieven',
   'tax.multiReducedHint':
     'Welk tarief geldt hangt af van het product, en gokken levert een verkeerd bedrag op. Kies wat op je bon staat:',
+
+  'translation.mismatch':
+    'De artikelnamen op deze bon zijn vertaald naar het {lang}, anders dan je schermtaal.',
+  'translation.rescan':
+    'Bon opnieuw scannen om naar het {lang} te vertalen (vervangt AI-regels)',
 
   'lang.label': 'Taal',
 };
@@ -611,6 +624,11 @@ const de: Catalog = {
   'tax.multiReduced': '{country} hat mehrere ermäßigte Sätze',
   'tax.multiReducedHint':
     'Welcher gilt, hängt von der Ware ab; Raten würde den Betrag verfälschen. Wähle den Satz von deiner Rechnung:',
+
+  'translation.mismatch':
+    'Die Artikelnamen dieser Rechnung sind auf {lang} übersetzt — anders als deine Anzeigesprache.',
+  'translation.rescan':
+    'Rechnung neu erkennen und auf {lang} übersetzen (ersetzt KI-Zeilen)',
 
   'lang.label': 'Sprache',
 };

@@ -19,6 +19,7 @@ import {
   SettlementTable,
 } from '../../components/SettlementTable';
 import { TaxCountryPicker } from '../../components/TaxCountryPicker';
+import { TranslationLangNotice } from '../../components/TranslationLangNotice';
 import { ValidationBanner } from '../../components/ValidationBanner';
 import {
   api,
@@ -41,7 +42,7 @@ const euroToCents = (text: string): number | null => {
 
 /** PRD M3:Owner 端闭环 —— 识别、校对编辑、家庭、均摊、校验提示。 */
 export default function BillScreen() {
-  const { t } = useLang();
+  const { t, lang } = useLang();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [bill, setBill] = useState<Bill | null>(null);
   const [validation, setValidation] = useState<ValidateResponse | null>(null);
@@ -107,7 +108,7 @@ export default function BillScreen() {
         return b.items.some((i) => i.source === 'ai' && !beforeAiIds.has(i.id));
       };
       try {
-        await api.parse(id!, picked.base64, picked.mimeType);
+        await api.parse(id!, picked.base64, picked.mimeType, lang);
       } catch {
         // Heroku 30s 网关超时:识别很可能仍在后台完成 → 轮询等结果,别直接报错
         for (let i = 0; i < 15; i++) {
@@ -138,7 +139,7 @@ export default function BillScreen() {
     run(t('bill.adding'), () =>
       api.addItem(id!, {
         name: t('bill.newItem'),
-        nameZh: '',
+        nameTranslated: '',
         qtyMilli: 1000,
         unit: 'ST',
         unitPriceMilli: 0,
@@ -212,6 +213,12 @@ export default function BillScreen() {
           {t('bill.viewInvoice')}
         </Text>
       )}
+
+      <TranslationLangNotice
+        billLang={bill.translationLang}
+        onRescan={pickAndParse}
+        busy={!!busy}
+      />
 
       <ValidationBanner result={validation} />
 

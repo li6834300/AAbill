@@ -9,7 +9,7 @@ import { createOpenAISuggester } from './openai-suggester.js';
 export interface ClaimCandidate {
   id: string;
   name: string;
-  nameZh: string;
+  nameTranslated: string;
   /** 如 "1.952 KG"、"10 件" */
   qtyLabel: string;
   /** 如 "12.291 €/KG"、"2.79 €/件" */

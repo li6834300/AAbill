@@ -13,6 +13,12 @@ export const TaxRatesSchema = z.object({
   B: z.number().int().nonnegative(),
 });
 export const TaxClassSchema = z.enum(['A', 'B']);
+
+/**
+ * 支持的译名语言。商品译名跟着**账单**走(识别时定下),不跟界面语言走 ——
+ * 切界面语言不会重译已有条目,那需要重新识别整张发票。
+ */
+export const LangSchema = z.enum(['zh', 'en', 'nl', 'de']);
 export const BillStatusSchema = z.enum(['draft', 'claiming', 'locked']);
 
 export const BillCreateSchema = z.object({
@@ -30,7 +36,8 @@ export const TaxCountrySetSchema = z.object({
 
 export const ItemInputSchema = z.object({
   name: z.string().min(1),
-  nameZh: z.string().default(''),
+  /** AI 按账单语言给出的译名;语言见 bill.translationLang */
+  nameTranslated: z.string().default(''),
   qtyMilli: z.number().int().positive(),
   unit: z.string().default('ST'),
   unitPriceMilli: z.number().int(),
@@ -46,7 +53,7 @@ export const ItemInputSchema = z.object({
  */
 export const ItemPatchSchema = z.object({
   name: z.string().min(1).optional(),
-  nameZh: z.string().optional(),
+  nameTranslated: z.string().optional(),
   qtyMilli: z.number().int().positive().optional(),
   unit: z.string().optional(),
   unitPriceMilli: z.number().int().optional(),
@@ -124,6 +131,8 @@ export const BillSchema = z.object({
   /** 归属 Owner(JWT sub);Participant 无归属 */
   ownerId: z.string(),
   title: z.string(),
+  /** 商品译名所用的语言;null = 还没识别过 */
+  translationLang: LangSchema.nullable(),
   /** null = 尚未确定税制(AI 没识别出且用户还没选)。仅作标签与税率兜底来源 */
   taxCountry: TaxCountrySchema.nullable(),
   /** 算钱真正用的税率(基点)。null = 无从计税,校验/结算/锁定一律挡下 */
@@ -147,7 +156,7 @@ const decimalCents = z.string().regex(/^\d+(\.\d{1,2})?$/);
 
 export const ParsedItemSchema = z.object({
   name: z.string().min(1),
-  nameZh: z.string(),
+  nameTranslated: z.string(),
   qty: decimalMilli,
   unit: z.string(),
   unitPriceNet: decimalMilli,
@@ -173,6 +182,7 @@ export const ParsedReceiptSchema = z.object({
   }),
 });
 
+export type Lang = z.infer<typeof LangSchema>;
 export type TaxCountry = z.infer<typeof TaxCountrySchema>;
 export type TaxRates = z.infer<typeof TaxRatesSchema>;
 export type TaxClass = z.infer<typeof TaxClassSchema>;

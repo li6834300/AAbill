@@ -141,7 +141,11 @@ describe('POST /bills/:id/lock', () => {
     expect(
       (
         await app.request(
-          req(`/bills/${bill.id}/items/${folie.id}`, { nameZh: 'x' }, 'PATCH'),
+          req(
+            `/bills/${bill.id}/items/${folie.id}`,
+            { nameTranslated: 'x' },
+            'PATCH',
+          ),
         )
       ).status,
     ).toBe(423);

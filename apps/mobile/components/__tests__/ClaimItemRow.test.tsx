@@ -10,7 +10,7 @@ import { ClaimItemRow } from '../ClaimItemRow';
 const eggs = {
   id: 'i-eggs',
   name: '10er Eier',
-  nameZh: '鸡蛋',
+  nameTranslated: '鸡蛋',
   qtyMilli: 10000, // 10 盒
   unit: 'PG',
   unitPriceMilli: 2790, // 2.79 €/盒
@@ -22,7 +22,7 @@ const beef = {
   ...eggs,
   id: 'i-beef',
   name: 'RINDER FILET',
-  nameZh: '牛柳',
+  nameTranslated: '牛柳',
   qtyMilli: 2871, // 2.871kg 一整块
   unit: 'KG',
   unitPriceMilli: 12290,

@@ -26,7 +26,7 @@ const receiptJson = JSON.stringify({
   items: [
     {
       name: 'Eier',
-      nameZh: '鸡蛋',
+      nameTranslated: '鸡蛋',
       qty: '2',
       unit: 'PG',
       unitPriceNet: '2.79',
@@ -82,6 +82,25 @@ describe('openai provider — Responses API(stub fetch,不发真实请求)', () 
       },
     };
   };
+
+  it('译名语言进 prompt —— 不传就默认英文', async () => {
+    const spy = vi.fn(async () => responsesReply(receiptJson));
+    vi.stubGlobal('fetch', spy);
+    const parser = createOpenAIParser({ apiKey: 'sk-t', model: 'gpt-4.1' });
+
+    await parser.parseReceipt({
+      fileBase64: 'aGk=',
+      mimeType: 'image/jpeg',
+      lang: 'nl',
+    });
+    expect(callBody(spy).body.instructions).toContain('Nederlands');
+
+    vi.unstubAllGlobals();
+    const spy2 = vi.fn(async () => responsesReply(receiptJson));
+    vi.stubGlobal('fetch', spy2);
+    await parser.parseReceipt({ fileBase64: 'aGk=', mimeType: 'image/jpeg' });
+    expect(callBody(spy2).body.instructions).toContain('English');
+  });
 
   it('税制判断只看卖方 —— 跨境采购时买方地址是干扰项', async () => {
     // 真实 bug:Metro 德国门店开给荷兰客户,发票上 DE(卖方)与 NL(买方)并存,

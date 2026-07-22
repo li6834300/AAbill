@@ -9,7 +9,7 @@ export function createMockParser(): ReceiptParser {
     items: [
       {
         name: '10mx30cm KRAFT-ALUFOLIE',
-        nameZh: '铝箔纸',
+        nameTranslated: '铝箔纸',
         qty: '1',
         unit: 'ST',
         unitPriceNet: '1.99',
@@ -18,7 +18,7 @@ export function createMockParser(): ReceiptParser {
       },
       {
         name: 'MC HAE.OBERKEULE',
-        nameZh: '鸡大腿',
+        nameTranslated: '鸡大腿',
         qty: '2.871',
         unit: 'KG',
         unitPriceNet: '6.488',
@@ -27,7 +27,7 @@ export function createMockParser(): ReceiptParser {
       },
       {
         name: '10er Eier bunt M Boden',
-        nameZh: '散养鸡蛋 10个',
+        nameTranslated: '散养鸡蛋 10个',
         qty: '2',
         unit: 'PG',
         unitPriceNet: '2.79',

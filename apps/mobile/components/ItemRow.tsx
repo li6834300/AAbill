@@ -14,7 +14,7 @@ import { useLang } from '../lib/use-lang';
 export interface ItemView {
   id: string;
   name: string;
-  nameZh: string;
+  nameTranslated: string;
   qtyMilli: number;
   unit: string;
   unitPriceMilli: number;
@@ -26,7 +26,7 @@ export interface ItemView {
 
 export interface ItemPatch {
   name?: string;
-  nameZh?: string;
+  nameTranslated?: string;
   qtyMilli?: number;
   unitPriceMilli?: number;
   isShared?: boolean;
@@ -53,7 +53,7 @@ export function ItemRow({
   const { t } = useLang();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(item.name);
-  const [nameZh, setNameZh] = useState(item.nameZh);
+  const [nameTranslated, setNameZh] = useState(item.nameTranslated);
   const [qtyText, setQtyText] = useState(milliToDecimal(item.qtyMilli));
   const [priceText, setPriceText] = useState(
     milliToDecimal(item.unitPriceMilli),
@@ -71,7 +71,8 @@ export function ItemRow({
   const save = () => {
     const patch: ItemPatch = {};
     if (name !== item.name && name.trim()) patch.name = name;
-    if (nameZh !== item.nameZh) patch.nameZh = nameZh;
+    if (nameTranslated !== item.nameTranslated)
+      patch.nameTranslated = nameTranslated;
     const qty = parseMilli(qtyText);
     if (qty !== null && qty > 0 && qty !== item.qtyMilli) patch.qtyMilli = qty;
     const price = parseMilli(priceText);
@@ -93,9 +94,9 @@ export function ItemRow({
           placeholder={t('item.name')}
         />
         <TextInput
-          testID="edit-nameZh"
+          testID="edit-nameTranslated"
           style={styles.input}
-          value={nameZh}
+          value={nameTranslated}
           onChangeText={setNameZh}
           placeholder={t('item.nameTranslated')}
         />
@@ -133,7 +134,7 @@ export function ItemRow({
         <View style={styles.flex}>
           <Text style={styles.name}>{item.name}</Text>
           <Text style={styles.sub}>
-            {item.nameZh ? `${item.nameZh} · ` : ''}
+            {item.nameTranslated ? `${item.nameTranslated} · ` : ''}
             {milliToDecimal(item.qtyMilli)} {item.unit} ×{' '}
             {milliToDecimal(item.unitPriceMilli)} € ·{' '}
             {t('item.taxClass', { cls: item.taxClass })}
