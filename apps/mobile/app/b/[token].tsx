@@ -75,7 +75,11 @@ export default function ClaimScreen() {
 
   const setPortion = (itemId: string, portion: number) => {
     setDraft((d) => ({ ...d, [itemId]: portion }));
-    setConflicts(({ [itemId]: _drop, ...rest }) => rest);
+    setConflicts((prev) => {
+      const next = { ...prev };
+      delete next[itemId];
+      return next;
+    });
     setSavedAt(null);
   };
 
