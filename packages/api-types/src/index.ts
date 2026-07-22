@@ -23,6 +23,22 @@ export const ItemInputSchema = z.object({
   printedLineNetCents: z.number().int().optional(),
 });
 
+/**
+ * 条目局部修改:全部可选且**不带默认值**。
+ * 不能用 ItemInputSchema.partial() —— 那样 zod 会给未提交的字段补默认值,
+ * PATCH 时会静默清空中文名、把单位重置成 ST、取消均摊标记。
+ */
+export const ItemPatchSchema = z.object({
+  name: z.string().min(1).optional(),
+  nameZh: z.string().optional(),
+  qtyMilli: z.number().int().positive().optional(),
+  unit: z.string().optional(),
+  unitPriceMilli: z.number().int().optional(),
+  taxClass: TaxClassSchema.optional(),
+  isShared: z.boolean().optional(),
+  printedLineNetCents: z.number().int().optional(),
+});
+
 export const ItemSchema = ItemInputSchema.extend({
   id: z.string(),
   source: z.enum(['ai', 'manual']),
@@ -115,6 +131,7 @@ export type TaxClass = z.infer<typeof TaxClassSchema>;
 export type BillStatus = z.infer<typeof BillStatusSchema>;
 export type BillCreate = z.infer<typeof BillCreateSchema>;
 export type ItemInput = z.infer<typeof ItemInputSchema>;
+export type ItemPatch = z.infer<typeof ItemPatchSchema>;
 export type Item = z.infer<typeof ItemSchema>;
 export type Family = z.infer<typeof FamilySchema>;
 export type Claim = z.infer<typeof ClaimSchema>;
