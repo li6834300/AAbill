@@ -16,6 +16,7 @@ const bearer = { authorization: `Bearer ${TOKEN}` };
 
 const RECEIPT: ParsedReceipt = {
   detectedTaxCountry: 'DE',
+  detectedRates: { A: '19,00', B: '7,00' },
   items: [
     {
       name: '10mx30cm KRAFT-ALUFOLIE',

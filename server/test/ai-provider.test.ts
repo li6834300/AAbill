@@ -22,6 +22,7 @@ const responsesReply = (json: string) =>
 
 const receiptJson = JSON.stringify({
   detectedTaxCountry: 'DE',
+  detectedRates: { A: '19,00', B: '7,00' },
   items: [
     {
       name: 'Eier',
@@ -66,6 +67,7 @@ describe('openai provider — Responses API(stub fetch,不发真实请求)', () 
       headers: init.headers,
       body: JSON.parse(init.body) as {
         model: string;
+        instructions: string;
         max_output_tokens: number;
         text: { format: { type: string } };
         input: Array<{
@@ -80,6 +82,24 @@ describe('openai provider — Responses API(stub fetch,不发真实请求)', () 
       },
     };
   };
+
+  it('税制判断只看卖方 —— 跨境采购时买方地址是干扰项', async () => {
+    // 真实 bug:Metro 德国门店开给荷兰客户,发票上 DE(卖方)与 NL(买方)并存,
+    // 旧 prompt 只说"依据发票上的地址"没说是谁的地址,模型看到冲突就回了 UNKNOWN。
+    const spy = vi.fn(async () => responsesReply(receiptJson));
+    vi.stubGlobal('fetch', spy);
+    await createOpenAIParser({ apiKey: 'sk-t', model: 'gpt-4.1' }).parseReceipt(
+      {
+        fileBase64: 'aGk=',
+        mimeType: 'image/jpeg',
+      },
+    );
+    const { instructions } = callBody(spy).body;
+    expect(instructions).toMatch(/开票方|卖方/);
+    expect(instructions).toMatch(/忽略买方|买方/);
+    // 也必须要求读发票上印的实际税率 —— 国家表只是兜底
+    expect(instructions).toContain('detectedRates');
+  });
 
   it('图片:打到 /v1/responses,input_image + json_schema,解析输出', async () => {
     const spy = vi.fn(async () => responsesReply(receiptJson));

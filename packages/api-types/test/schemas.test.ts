@@ -31,7 +31,7 @@ describe('BillCreateSchema', () => {
       BillCreateSchema.safeParse({ title: '', taxCountry: 'DE' }).success,
     ).toBe(false);
     expect(
-      BillCreateSchema.safeParse({ title: 'x', taxCountry: 'FR' }).success,
+      BillCreateSchema.safeParse({ title: 'x', taxCountry: 'XX' }).success,
     ).toBe(false);
   });
 });
@@ -108,6 +108,7 @@ describe('PrintedTotalsSchema', () => {
 describe('ParsedReceiptSchema(AI 识别输出,十进制字符串)', () => {
   const receipt = {
     detectedTaxCountry: 'DE',
+    detectedRates: { A: '19,00', B: '7,00' },
     items: [
       {
         name: 'MC HAE.OBERKEULE',
