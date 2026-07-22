@@ -176,10 +176,10 @@ export default function BillScreen() {
       <TaxCountryPicker
         country={bill.taxCountry}
         rates={bill.taxRates}
-        onChange={async (c) => {
+        onChange={async (c, reducedRateBp) => {
           setBusy('保存税制…');
           try {
-            setBill(await api.setTaxCountry(bill.id, c));
+            setBill(await api.setTaxCountry(bill.id, c, reducedRateBp));
           } catch (e) {
             setError(String(e));
           } finally {

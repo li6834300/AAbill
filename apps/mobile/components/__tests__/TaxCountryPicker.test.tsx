@@ -45,15 +45,27 @@ describe('TaxCountryPicker', () => {
     expect(screen.getByText(/税制待定/)).toBeTruthy();
   });
 
-  it('点开后列出各国供选择,选中回传国家码', () => {
+  it('选中只有一档低税率的国家 → 直接回传', () => {
     const onChange = jest.fn();
     render(<TaxCountryPicker {...props} onChange={onChange} />);
     fireEvent.press(screen.getByTestId('tax-country-trigger'));
-    // 30 国全在列表里,不只德荷
     expect(screen.getByTestId('option-FR')).toBeTruthy();
     expect(screen.getByTestId('option-IT')).toBeTruthy();
+    fireEvent.press(screen.getByTestId('option-DE'));
+    expect(onChange).toHaveBeenCalledWith('DE', undefined);
+  });
+
+  it('选中多档低税率的国家 → 追问用哪档,不替用户猜', () => {
+    // 法国有 0.9/1.05/2.1/5.5/8.5/10/13 七档,自动取一档必然算错
+    const onChange = jest.fn();
+    render(<TaxCountryPicker {...props} onChange={onChange} />);
+    fireEvent.press(screen.getByTestId('tax-country-trigger'));
     fireEvent.press(screen.getByTestId('option-FR'));
-    expect(onChange).toHaveBeenCalledWith('FR');
+
+    expect(onChange).not.toHaveBeenCalled();
+    expect(screen.getByText(/多档低税率/)).toBeTruthy();
+    fireEvent.press(screen.getByTestId('reduced-550'));
+    expect(onChange).toHaveBeenCalledWith('FR', 550);
   });
 
   it('可搜索:输入关键字过滤国家', () => {

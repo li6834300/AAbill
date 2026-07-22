@@ -105,10 +105,10 @@ export const api = {
   listBills: () => req<{ bills: BillSummary[] }>('/bills'),
   createBill: (body: { title: string }) => req<Bill>('/bills', json(body)),
   /** 发票没识别出税制时,由用户补选 */
-  setTaxCountry: (id: string, taxCountry: TaxCountry) =>
+  setTaxCountry: (id: string, taxCountry: TaxCountry, reducedRateBp?: number) =>
     req<Bill>(`/bills/${id}/tax-country`, {
       method: 'PUT',
-      body: JSON.stringify({ taxCountry }),
+      body: JSON.stringify({ taxCountry, reducedRateBp }),
     }),
   getBill: (id: string) => req<Bill>(`/bills/${id}`),
   parse: (id: string, fileBase64: string, mimeType: string) =>

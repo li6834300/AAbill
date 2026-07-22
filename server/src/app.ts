@@ -17,6 +17,8 @@ import {
 import {
   bpFromPercent,
   DEFAULT_TAX_RATES,
+  isReducedRateAmbiguous,
+  reducedRateOptions,
   settle,
   toMilli,
   validate,
@@ -108,7 +110,10 @@ const ratesFrom = (
   try {
     return { A: bpFromPercent(printed.A), B: bpFromPercent(printed.B) };
   } catch {
-    return country ? DEFAULT_TAX_RATES[country] : null;
+    // 国家表兜底只在低税率唯一时可信。多档时(法国有 7 档,含海外省与科西嘉)
+    // 「食品用哪档」推导不出来,取最低会选中 0.9% —— 宁可留空让用户选。
+    if (!country || isReducedRateAmbiguous(country)) return null;
+    return DEFAULT_TAX_RATES[country];
   }
 };
 
@@ -484,9 +489,32 @@ export function createApp({
       await c.req.json().catch(() => null),
     );
     if (!parsed.success) return c.json({ error: parsed.error.issues }, 400);
-    bill.taxCountry = parsed.data.taxCountry;
+    const { taxCountry, reducedRateBp } = parsed.data;
+    const options = reducedRateOptions(taxCountry);
+    if (reducedRateBp === undefined && isReducedRateAmbiguous(taxCountry)) {
+      return c.json(
+        {
+          error: `${taxCountry} 有多档低税率,请指明食品适用哪一档`,
+          reducedRateOptions: options,
+        },
+        400,
+      );
+    }
+    if (reducedRateBp !== undefined && !options.includes(reducedRateBp)) {
+      return c.json(
+        {
+          error: `${taxCountry} 没有这一档低税率`,
+          reducedRateOptions: options,
+        },
+        400,
+      );
+    }
+    bill.taxCountry = taxCountry;
     // 人工选国家是显式意图,税率随之改用该国的表值
-    bill.taxRates = DEFAULT_TAX_RATES[parsed.data.taxCountry];
+    bill.taxRates = {
+      A: DEFAULT_TAX_RATES[taxCountry].A,
+      B: reducedRateBp ?? DEFAULT_TAX_RATES[taxCountry].B,
+    };
     return c.json(await repo.save(bill));
   });
 

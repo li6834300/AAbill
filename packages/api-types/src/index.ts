@@ -24,6 +24,8 @@ export const BillCreateSchema = z.object({
 /** 识别不出税制时,由用户人工指定 */
 export const TaxCountrySetSchema = z.object({
   taxCountry: TaxCountrySchema,
+  /** 该国有多档低税率时必填(基点),否则无从判定食品适用哪档 */
+  reducedRateBp: z.number().int().nonnegative().optional(),
 });
 
 export const ItemInputSchema = z.object({

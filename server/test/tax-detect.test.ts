@@ -148,10 +148,23 @@ describe('税率优先取发票印刷值,国家表只作兜底', () => {
     expect(after.taxRates).toBeNull();
   });
 
-  it('支持德荷之外的国家(法国 20% / 5.5%)', async () => {
-    const after = await parseWith('FR', { A: '', B: '' });
+  it('支持德荷之外的国家:法国税率读得出就直接用', async () => {
+    const after = await parseWith('FR', { A: '20,00', B: '5,50' });
     expect(after.taxCountry).toBe('FR');
     expect(after.taxRates).toEqual({ A: 2000, B: 550 });
+  });
+
+  it('多档低税率的国家且发票没印税率 → 不替用户猜,税率留 null', async () => {
+    // 法国低税率有 0.9/1.05/2.1/5.5/8.5/10/13 七档(含海外省与科西嘉),
+    // 取最低会选中 0.9%,算出来的钱是错的。宁可留空让用户选。
+    const after = await parseWith('FR', { A: '', B: '' });
+    expect(after.taxCountry).toBe('FR');
+    expect(after.taxRates).toBeNull();
+  });
+
+  it('单档低税率的国家(德国)才允许用国家表兜底', async () => {
+    const after = await parseWith('DE', { A: '', B: '' });
+    expect(after.taxRates).toEqual({ A: 1900, B: 700 });
   });
 });
 
@@ -188,6 +201,56 @@ describe('税制未知时不能校验/结算/锁定', () => {
     expect((await app.request(req(`/bills/${bill.id}/lock`, {}))).status).toBe(
       409,
     );
+  });
+});
+
+describe('PUT /bills/:id/tax-country:多档低税率必须指明用哪档', () => {
+  const setup = async () => {
+    const app = testApp({ parser: parserOf('UNKNOWN') });
+    const bill = await j<Obj>(await app.request(req('/bills', { title: 'M' })));
+    return { app, bill };
+  };
+
+  it('只给国家而该国有多档低税率 → 400,并列出候选', async () => {
+    const { app, bill } = await setup();
+    const res = await app.request(
+      req(`/bills/${bill.id}/tax-country`, { taxCountry: 'FR' }, 'PUT'),
+    );
+    expect(res.status).toBe(400);
+    const body = await j<{ error: string; reducedRateOptions: number[] }>(res);
+    expect(body.error).toMatch(/低税率/);
+    expect(body.reducedRateOptions).toContain(550);
+  });
+
+  it('指明了用哪档 → 200', async () => {
+    const { app, bill } = await setup();
+    const res = await app.request(
+      req(
+        `/bills/${bill.id}/tax-country`,
+        { taxCountry: 'FR', reducedRateBp: 550 },
+        'PUT',
+      ),
+    );
+    expect(res.status).toBe(200);
+    expect((await j<{ taxRates: unknown }>(res)).taxRates).toEqual({
+      A: 2000,
+      B: 550,
+    });
+  });
+
+  it('指定了该国没有的档位 → 400', async () => {
+    const { app, bill } = await setup();
+    expect(
+      (
+        await app.request(
+          req(
+            `/bills/${bill.id}/tax-country`,
+            { taxCountry: 'FR', reducedRateBp: 1234 },
+            'PUT',
+          ),
+        )
+      ).status,
+    ).toBe(400);
   });
 });
 

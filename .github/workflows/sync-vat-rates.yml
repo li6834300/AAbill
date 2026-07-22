@@ -1,0 +1,47 @@
+name: Sync VAT rates
+
+# 税率会变(罗马尼亚 2025 年把标准税率从 19% 调到 21%),而错了不会报错,
+# 只会静静算错钱。所以每周从欧委会 TEDB 同步一次,有变动就自动开 PR 让人审。
+on:
+  schedule:
+    - cron: '17 5 * * 1' # 每周一 05:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Sync rates from TEDB
+        run: npm run sync:vat-rates
+
+      # 税率变动会改动金额计算,必须全绿才提 PR
+      - name: Verify
+        run: npm test && npm run lint && npm run typecheck
+
+      - name: Open PR if rates changed
+        uses: peter-evans/create-pull-request@v7
+        with:
+          branch: chore/sync-vat-rates
+          title: 'chore: 同步欧委会 TEDB 税率'
+          commit-message: 'chore: 同步欧委会 TEDB 税率'
+          body: |
+            自动同步 `packages/core/src/vat-rates.generated.ts`。
+
+            **请人工核对 diff**:税率变动会直接改变分账金额。
+            重点看标准税率(A)的变化,以及低税率档位数量是否变化
+            —— 档位从 1 变多会让该国的国家表兜底失效(改为询问用户)。
+          labels: dependencies
