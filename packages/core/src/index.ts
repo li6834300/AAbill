@@ -18,7 +18,10 @@ export {
 } from './validate';
 export { roundHalfAwayFromZero, toMilli } from './money';
 export {
+  bpFromPercent,
   DEFAULT_TAX_RATES,
+  TAX_COUNTRIES,
+  TAX_COUNTRY_NAMES,
   lineNetCents,
   vatCents,
   type TaxClass,
