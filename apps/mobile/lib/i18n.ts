@@ -1,7 +1,13 @@
 import { getLocales } from 'expo-localization';
 import { CATALOGS, LANGS, type Lang, type MessageKey } from './locales';
 
-export { CATALOGS, LANGS, LANG_NAMES, type Lang, type MessageKey } from './locales';
+export {
+  CATALOGS,
+  LANGS,
+  LANG_NAMES,
+  type Lang,
+  type MessageKey,
+} from './locales';
 
 // 界面语言:默认跟随系统,用户可自选并持久化(与登录令牌同样的存储策略)。
 //
@@ -10,7 +16,8 @@ export { CATALOGS, LANGS, LANG_NAMES, type Lang, type MessageKey } from './local
 
 const KEY = 'aabill_lang';
 
-const isLang = (v: string): v is Lang => (LANGS as readonly string[]).includes(v);
+const isLang = (v: string): v is Lang =>
+  (LANGS as readonly string[]).includes(v);
 
 /** 系统语言;'de-AT' 这类带地区码的取语言部分。不支持就回落英文。 */
 function systemLang(): Lang {

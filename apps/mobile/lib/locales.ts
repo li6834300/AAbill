@@ -29,6 +29,8 @@ const zh = {
 
   'login.title': '登录 AAbill',
   'login.google': '用 Google 账号登录',
+  'login.googleScriptFailed': '无法加载 Google 登录脚本',
+  'login.googleUnavailable': 'Google 登录不可用',
   'login.devHint': '开发登录:输入邮箱即可',
   'login.submit': '登录',
   'login.failed': '登录失败 {status}',
@@ -108,8 +110,7 @@ const zh = {
   'claim.estimated': '预计应付 {amount} €',
   'claim.exclTax': '(未含税)',
   'claim.netPlusTax': '净额 {amount} € + 税;最终以发起人锁定后的汇总为准。',
-  'claim.noTaxYet':
-    '发起人尚未确定税制,暂只显示净额;最终以锁定后的汇总为准。',
+  'claim.noTaxYet': '发起人尚未确定税制,暂只显示净额;最终以锁定后的汇总为准。',
   'claim.submit': '提交我的认领',
   'claim.submitting': '提交中…',
   'claim.submitted': '✓ 已提交,大家都能看到了',
@@ -144,7 +145,8 @@ const zh = {
   'tax.settledWithRates': '税制 {country} {code} · {a} / {b}',
   'tax.pending': '税制待定 —— 点此选择国家',
   'tax.pickCountry': '选择账单所属国家',
-  'tax.pickHint': '税率以发票印刷值为准;这里选的国家只在发票读不出税率时用作兜底。',
+  'tax.pickHint':
+    '税率以发票印刷值为准;这里选的国家只在发票读不出税率时用作兜底。',
   'tax.searchPlaceholder': '搜索国家或代码',
   'tax.noMatch': '没有匹配的国家',
   'tax.multiReduced': '{country}有多档低税率',
@@ -172,6 +174,8 @@ const en: Catalog = {
 
   'login.title': 'Sign in to AAbill',
   'login.google': 'Sign in with Google',
+  'login.googleScriptFailed': 'Could not load the Google sign-in script',
+  'login.googleUnavailable': 'Google sign-in is unavailable',
   'login.devHint': 'Dev sign-in: just enter an email',
   'login.submit': 'Sign in',
   'login.failed': 'Sign-in failed ({status})',
@@ -318,6 +322,8 @@ const nl: Catalog = {
 
   'login.title': 'Inloggen bij AAbill',
   'login.google': 'Inloggen met Google',
+  'login.googleScriptFailed': 'Kon het Google-inlogscript niet laden',
+  'login.googleUnavailable': 'Google-inloggen is niet beschikbaar',
   'login.devHint': 'Dev-login: voer een e-mailadres in',
   'login.submit': 'Inloggen',
   'login.failed': 'Inloggen mislukt ({status})',
@@ -353,7 +359,8 @@ const nl: Catalog = {
   'bill.lock': 'Bon vergrendelen (claims en regels definitief)',
   'bill.lockHint':
     'Zodra alles geclaimd is, verschijnen hier het overzicht en de vergrendelknop.',
-  'bill.parsing': 'Scannen (een bon van meerdere pagina’s duurt tot een minuut)…',
+  'bill.parsing':
+    'Scannen (een bon van meerdere pagina’s duurt tot een minuut)…',
   'bill.parseTimeout':
     'Scan duurde te lang — ververs zo meteen, of probeer opnieuw',
   'bill.savingTotals': 'Totalen opslaan…',
@@ -408,7 +415,8 @@ const nl: Catalog = {
   'claim.submit': 'Mijn claims indienen',
   'claim.submitting': 'Indienen…',
   'claim.submitted': '✓ Ingediend — iedereen kan het nu zien',
-  'claim.autoSync': 'Claims van andere huishoudens worden elke 5 seconden bijgewerkt.',
+  'claim.autoSync':
+    'Claims van andere huishoudens worden elke 5 seconden bijgewerkt.',
   'claim.conflict':
     'Je wilde er {requested}, maar anderen claimden al {claimedByOthers} — nog {available} over',
   'claim.conflictHint':
@@ -467,6 +475,9 @@ const de: Catalog = {
 
   'login.title': 'Bei AAbill anmelden',
   'login.google': 'Mit Google anmelden',
+  'login.googleScriptFailed':
+    'Google-Anmeldeskript konnte nicht geladen werden',
+  'login.googleUnavailable': 'Google-Anmeldung nicht verfügbar',
   'login.devHint': 'Dev-Login: einfach eine E-Mail eingeben',
   'login.submit': 'Anmelden',
   'login.failed': 'Anmeldung fehlgeschlagen ({status})',
@@ -503,7 +514,8 @@ const de: Catalog = {
   'bill.lock': 'Rechnung sperren (Positionen und Ansprüche endgültig)',
   'bill.lockHint':
     'Sobald alles beansprucht ist, erscheinen hier Übersicht und Sperr-Button.',
-  'bill.parsing': 'Erkennung läuft (mehrseitige Rechnungen dauern bis zu einer Minute)…',
+  'bill.parsing':
+    'Erkennung läuft (mehrseitige Rechnungen dauern bis zu einer Minute)…',
   'bill.parseTimeout':
     'Zeitüberschreitung bei der Erkennung — gleich neu laden oder erneut versuchen',
   'bill.savingTotals': 'Summen werden gespeichert…',

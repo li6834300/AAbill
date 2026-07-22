@@ -5,7 +5,9 @@ import {
   type TaxCountry,
   type TaxRates,
 } from '@aabill/core';
+import { countryName } from '../lib/country-name';
 import React, { useState } from 'react';
+import { useLang } from '../lib/use-lang';
 import {
   Modal,
   Pressable,
@@ -15,47 +17,6 @@ import {
   TextInput,
   View,
 } from 'react-native';
-
-/**
- * 国名中译。国名是稳定数据(不像税率会变),放在 UI 层即可;
- * 做 i18n 时这份表会并入语言包。core 只负责上游给的英文名。
- */
-const NAME_ZH: Partial<Record<TaxCountry, string>> = {
-  AT: '奥地利',
-  BE: '比利时',
-  BG: '保加利亚',
-  CH: '瑞士',
-  CY: '塞浦路斯',
-  CZ: '捷克',
-  DE: '德国',
-  DK: '丹麦',
-  EE: '爱沙尼亚',
-  ES: '西班牙',
-  FI: '芬兰',
-  FR: '法国',
-  GB: '英国',
-  GR: '希腊',
-  HR: '克罗地亚',
-  HU: '匈牙利',
-  IE: '爱尔兰',
-  IS: '冰岛',
-  IT: '意大利',
-  LI: '列支敦士登',
-  LT: '立陶宛',
-  LU: '卢森堡',
-  LV: '拉脱维亚',
-  MT: '马耳他',
-  NL: '荷兰',
-  NO: '挪威',
-  PL: '波兰',
-  PT: '葡萄牙',
-  RO: '罗马尼亚',
-  SE: '瑞典',
-  SI: '斯洛文尼亚',
-  SK: '斯洛伐克',
-};
-
-const nameOf = (c: TaxCountry) => NAME_ZH[c] ?? TAX_COUNTRY_NAMES[c];
 
 /** 基点 → 显示用百分比:1900 → "19%",550 → "5.5%" */
 export function percentLabel(bp: number): string {
@@ -82,6 +43,7 @@ export function TaxCountryPicker({
   onChange: (c: TaxCountry, reducedRateBp?: number) => void;
   busy?: boolean;
 }) {
+  const { t } = useLang();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   /** 选了多档低税率的国家后,停在这一步等用户挑档位 */
@@ -98,14 +60,20 @@ export function TaxCountryPicker({
     (c) =>
       q === '' ||
       c.toLowerCase().includes(q) ||
-      nameOf(c).toLowerCase().includes(q) ||
+      countryName(c).toLowerCase().includes(q) ||
       TAX_COUNTRY_NAMES[c].toLowerCase().includes(q),
   );
 
   const label = country
-    ? `税制 ${nameOf(country)} ${country}` +
-      (rates ? ` · ${percentLabel(rates.A)} / ${percentLabel(rates.B)}` : '')
-    : '税制待定 —— 点此选择国家';
+    ? rates
+      ? t('tax.settledWithRates', {
+          country: countryName(country),
+          code: country,
+          a: percentLabel(rates.A),
+          b: percentLabel(rates.B),
+        })
+      : t('tax.settled', { country: countryName(country), code: country })
+    : t('tax.pending');
 
   const pickCountry = (c: TaxCountry) => {
     if (reducedRateOptions(c).length > 1) {
@@ -143,16 +111,14 @@ export function TaxCountryPicker({
           <Pressable style={styles.sheet} onPress={() => {}}>
             {pendingCountry === null ? (
               <>
-                <Text style={styles.sheetTitle}>选择账单所属国家</Text>
-                <Text style={styles.sheetHint}>
-                  税率以发票印刷值为准;这里选的国家只在发票读不出税率时用作兜底。
-                </Text>
+                <Text style={styles.sheetTitle}>{t('tax.pickCountry')}</Text>
+                <Text style={styles.sheetHint}>{t('tax.pickHint')}</Text>
                 <TextInput
                   testID="country-search"
                   style={styles.search}
                   value={query}
                   onChangeText={setQuery}
-                  placeholder="搜索国家或代码(如 法国 / FR)"
+                  placeholder={t('tax.searchPlaceholder')}
                   autoCorrect={false}
                 />
                 <ScrollView style={styles.list}>
@@ -167,22 +133,24 @@ export function TaxCountryPicker({
                       onPress={() => pickCountry(c)}
                     >
                       <Text style={styles.optionName}>
-                        {nameOf(c)} {c}
+                        {countryName(c)} {c}
                       </Text>
                     </Pressable>
                   ))}
                   {shown.length === 0 && (
-                    <Text style={styles.sheetHint}>没有匹配的国家</Text>
+                    <Text style={styles.sheetHint}>{t('tax.noMatch')}</Text>
                   )}
                 </ScrollView>
               </>
             ) : (
               <>
                 <Text style={styles.sheetTitle}>
-                  {nameOf(pendingCountry)}有多档低税率
+                  {t('tax.multiReduced', {
+                    country: countryName(pendingCountry),
+                  })}
                 </Text>
                 <Text style={styles.sheetHint}>
-                  食品适用哪一档因商品而异,自动挑一档会算错钱。请对照发票选择:
+                  {t('tax.multiReducedHint')}
                 </Text>
                 <ScrollView style={styles.list}>
                   {reducedRateOptions(pendingCountry).map((bp) => (

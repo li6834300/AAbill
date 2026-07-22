@@ -17,7 +17,7 @@ export default tseslint.config(
   ...tseslint.configs.recommended,
   {
     // CommonJS 配置文件(jest/metro 等)
-    files: ['**/*.config.js', '**/babel.config.js'],
+    files: ['**/*.config.js', '**/babel.config.js', '**/jest.setup.js'],
     languageOptions: {
       sourceType: 'commonjs',
       globals: {
@@ -26,6 +26,11 @@ export default tseslint.config(
         __dirname: 'readonly',
       },
     },
+    rules: { '@typescript-eslint/no-require-imports': 'off' },
+  },
+  {
+    // 测试里为拿到「全新模块状态」需要 isolateModules + require(jest 跑 CJS)
+    files: ['**/__tests__/**/*.ts', '**/__tests__/**/*.tsx'],
     rules: { '@typescript-eslint/no-require-imports': 'off' },
   },
   {

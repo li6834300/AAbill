@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { centsToEuro } from '../lib/format';
+import { useLang } from '../lib/use-lang';
 
 export interface ValidationResultView {
   ok: boolean;
@@ -21,14 +22,15 @@ export function ValidationBanner({
 }: {
   result: ValidationResultView | null;
 }) {
+  const { t } = useLang();
   if (!result) return null;
 
   const { diffs } = result;
   const rows = [
-    { label: '净额差', cents: diffs.netCents },
-    { label: 'A 税额差', cents: diffs.vatByClass.A },
-    { label: 'B 税额差', cents: diffs.vatByClass.B },
-    { label: '含税差', cents: diffs.grossCents },
+    { label: t('validate.netDiff'), cents: diffs.netCents },
+    { label: t('validate.vatADiff'), cents: diffs.vatByClass.A },
+    { label: t('validate.vatBDiff'), cents: diffs.vatByClass.B },
+    { label: t('validate.grossDiff'), cents: diffs.grossCents },
   ].filter((r) => r.cents !== 0);
 
   const maxAbs = Math.max(0, ...rows.map((r) => Math.abs(r.cents)));
@@ -36,7 +38,7 @@ export function ValidationBanner({
   if (result.ok || maxAbs === 0) {
     return (
       <View testID="validation-banner" style={[styles.banner, styles.ok]}>
-        <Text style={styles.okText}>✓ 与发票合计一致</Text>
+        <Text style={styles.okText}>{t('validate.ok')}</Text>
       </View>
     );
   }
@@ -45,7 +47,7 @@ export function ValidationBanner({
     return (
       <View testID="validation-banner" style={[styles.banner, styles.near]}>
         <Text style={styles.nearText}>
-          ✓ 基本吻合(尾差 {centsToEuro(diffs.grossCents)} €,四舍五入所致)
+          {t('validate.near', { amount: centsToEuro(diffs.grossCents) })}
         </Text>
       </View>
     );
@@ -53,7 +55,7 @@ export function ValidationBanner({
 
   return (
     <View testID="validation-banner" style={[styles.banner, styles.warn]}>
-      <Text style={styles.warnTitle}>合计对不上,请核对条目:</Text>
+      <Text style={styles.warnTitle}>{t('validate.mismatch')}</Text>
       {rows.map((r) => (
         <Text key={r.label} style={styles.warnText}>
           {r.label} {centsToEuro(r.cents)} €

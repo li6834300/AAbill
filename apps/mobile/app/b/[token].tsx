@@ -7,6 +7,8 @@ import { ClaimItemRow } from '../../components/ClaimItemRow';
 import { ClaimSuggestionReview } from '../../components/ClaimSuggestionReview';
 import { api, type ClaimConflict } from '../../lib/api';
 import { centsToEuro } from '../../lib/format';
+import { LanguagePicker } from '../../components/LanguagePicker';
+import { useLang } from '../../lib/use-lang';
 import { pickInvoice } from '../../lib/pick-invoice';
 
 const POLL_MS = 5000;
@@ -16,6 +18,7 @@ const POLL_MS = 5000;
  * 认领是**本地选择 + 一次提交**:每点一次就发请求延迟太高;底部实时算钱,确认后批量提交。
  */
 export default function ClaimScreen() {
+  const { t } = useLang();
   const { token } = useLocalSearchParams<{ token: string }>();
   const [bill, setBill] = useState<Bill | null>(null);
   const [selectedFamilyId, setSelectedFamilyId] = useState<string | null>(null);
@@ -48,7 +51,7 @@ export default function ClaimScreen() {
   if (!bill) {
     return (
       <View style={styles.screen}>
-        <Text style={styles.sub}>{error ?? '加载中…'}</Text>
+        <Text style={styles.sub}>{error ?? t('common.loading')}</Text>
       </View>
     );
   }
@@ -134,11 +137,14 @@ export default function ClaimScreen() {
       } else {
         const map: Record<string, string> = {};
         for (const cf of res.conflicts as ClaimConflict[]) {
-          map[cf.itemId] =
-            `你要领 ${cf.requested} 件,但别家已领 ${cf.claimedByOthers} 件,只剩 ${cf.available} 件`;
+          map[cf.itemId] = t('claim.conflict', {
+            requested: cf.requested,
+            claimedByOthers: cf.claimedByOthers,
+            available: cf.available,
+          });
         }
         setConflicts(map);
-        setError('有商品被别人先领走了,请调整下面高亮的条目后重新提交');
+        setError(t('claim.conflictHint'));
       }
     } catch (e) {
       setError(String(e));
@@ -161,7 +167,7 @@ export default function ClaimScreen() {
       );
       setSuggestedIds(suggestedItemIds);
     } catch (e) {
-      setError(`拍照识别失败:${String(e)}`);
+      setError(t('claim.photoFailed', { error: String(e) }));
     } finally {
       setSuggesting(false);
     }
@@ -183,20 +189,18 @@ export default function ClaimScreen() {
       <Text style={styles.title}>{bill.title}</Text>
       {locked && (
         <View style={styles.lockedBanner}>
-          <Text style={styles.lockedText}>账单已锁定,认领结果不可再修改</Text>
+          <Text style={styles.lockedText}>{t('claim.lockedNotice')}</Text>
         </View>
       )}
       {error && <Text style={styles.error}>{error}</Text>}
 
-      <Text style={styles.section}>我是哪家?</Text>
+      <LanguagePicker />
+
+      <Text style={styles.section}>{t('claim.whichFamily')}</Text>
       {bill.families.length === 0 ? (
         <View style={styles.noticeBox}>
-          <Text style={styles.noticeText}>
-            账单发起人还没添加参与的家庭,暂时无法认领。
-          </Text>
-          <Text style={styles.hint}>
-            请让发起人在账单页的「参与家庭」里把大家加上,然后刷新本页。
-          </Text>
+          <Text style={styles.noticeText}>{t('claim.noFamilies')}</Text>
+          <Text style={styles.hint}>{t('claim.noFamiliesHint')}</Text>
         </View>
       ) : (
         <>
@@ -221,7 +225,7 @@ export default function ClaimScreen() {
             ))}
           </View>
           {!selectedFamilyId && !locked && (
-            <Text style={styles.hint}>先选择你的家庭,再勾选自己买的商品。</Text>
+            <Text style={styles.hint}>{t('claim.pickFamilyFirst')}</Text>
           )}
         </>
       )}
@@ -234,12 +238,10 @@ export default function ClaimScreen() {
             disabled={suggesting}
           >
             <Text style={styles.photoBtnText}>
-              {suggesting ? 'AI 识别中…' : '📷 拍照认领(AI 帮你预选)'}
+              {suggesting ? t('claim.photoBusy') : t('claim.photo')}
             </Text>
           </Pressable>
-          <Text style={styles.hint}>
-            对着你买的东西拍一张,AI 会猜哪些是你的 —— 结果需要你确认。
-          </Text>
+          <Text style={styles.hint}>{t('claim.photoHint')}</Text>
         </>
       )}
 
@@ -251,7 +253,9 @@ export default function ClaimScreen() {
         />
       )}
 
-      <Text style={styles.section}>商品({bill.items.length})</Text>
+      <Text style={styles.section}>
+        {t('claim.items', { n: bill.items.length })}
+      </Text>
       {bill.items.map((item) => (
         <ClaimItemRow
           key={item.id}
@@ -267,15 +271,16 @@ export default function ClaimScreen() {
       {selectedFamilyId && !locked && (
         <View style={styles.summary}>
           <Text style={styles.summaryLine}>
-            已选 {chosen.length} 种 / 共 {chosenUnits} 件
+            {t('claim.chosen', { kinds: chosen.length, units: chosenUnits })}
           </Text>
           <Text style={styles.summaryTotal}>
-            预计应付 {centsToEuro(grossCents)} €{rates ? '' : '(未含税)'}
+            {t('claim.estimated', { amount: centsToEuro(grossCents) })}
+            {rates ? '' : t('claim.exclTax')}
           </Text>
           <Text style={styles.hint}>
             {rates
-              ? `净额 ${centsToEuro(netCents)} € + 税;最终以发起人锁定后的汇总为准。`
-              : '发起人尚未确定税制,暂只显示净额;最终以锁定后的汇总为准。'}
+              ? t('claim.netPlusTax', { amount: centsToEuro(netCents) })
+              : t('claim.noTaxYet')}
           </Text>
           <Pressable
             style={[styles.submitBtn, submitting && styles.disabled]}
@@ -283,16 +288,16 @@ export default function ClaimScreen() {
             disabled={submitting || !dirty}
           >
             <Text style={styles.submitText}>
-              {submitting ? '提交中…' : '提交我的认领'}
+              {submitting ? t('claim.submitting') : t('claim.submit')}
             </Text>
           </Pressable>
           {savedAt !== null && (
-            <Text style={styles.saved}>✓ 已提交,大家都能看到了</Text>
+            <Text style={styles.saved}>{t('claim.submitted')}</Text>
           )}
         </View>
       )}
 
-      <Text style={styles.hint}>每 5 秒自动同步别家的认领状态。</Text>
+      <Text style={styles.hint}>{t('claim.autoSync')}</Text>
     </ScrollView>
   );
 }

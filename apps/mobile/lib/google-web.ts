@@ -1,6 +1,8 @@
 // Web-only Google 登录(Google Identity Services)。原生端走别的流程(暂未做)。
 // GIS 把"用 Google 登录"按钮渲染进一个 DOM 元素,登录后回调返回 id token(JWT)。
 
+import { t } from './i18n';
+
 interface GisId {
   initialize(opts: {
     client_id: string;
@@ -22,7 +24,7 @@ function loadGis(): Promise<void> {
     s.async = true;
     s.defer = true;
     s.onload = () => resolve();
-    s.onerror = () => reject(new Error('无法加载 Google 登录脚本'));
+    s.onerror = () => reject(new Error(t('login.googleScriptFailed')));
     document.head.appendChild(s);
   });
   return scriptPromise;
@@ -38,7 +40,7 @@ export async function renderGoogleButton(
   const gis = (
     globalThis as unknown as { google?: { accounts?: { id?: GisId } } }
   ).google?.accounts?.id;
-  if (!gis) throw new Error('Google 登录不可用');
+  if (!gis) throw new Error(t('login.googleUnavailable'));
   gis.initialize({
     client_id: clientId,
     callback: (resp) => onIdToken(resp.credential),

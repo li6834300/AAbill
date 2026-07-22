@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { centsToEuro } from '../lib/format';
+import { t, useLang } from '../lib/use-lang';
 
 export interface SettlementView {
   families: Array<{
@@ -18,14 +19,20 @@ export function buildSummaryText(
   title: string,
   settlement: SettlementView,
 ): string {
-  const lines = settlement.families.map(
-    (f) =>
-      `${f.name}:${centsToEuro(f.grossCents)} €(净 ${centsToEuro(f.netCents)} + 税 ${centsToEuro(f.vatCents)})`,
+  const lines = settlement.families.map((f) =>
+    t('settlement.summaryLine', {
+      name: f.name,
+      gross: centsToEuro(f.grossCents),
+      net: centsToEuro(f.netCents),
+      vat: centsToEuro(f.vatCents),
+    }),
   );
   return [
-    `${title} · AA 汇总`,
+    t('settlement.summaryTitle', { title }),
     ...lines,
-    `合计:${centsToEuro(settlement.totals.grossCents)} €`,
+    t('settlement.summaryTotal', {
+      gross: centsToEuro(settlement.totals.grossCents),
+    }),
   ].join('\n');
 }
 
@@ -35,19 +42,23 @@ export function SettlementTable({
 }: {
   settlement: SettlementView;
 }) {
+  useLang(); // 语言一变,下面的 t() 结果也要跟着重算
   return (
     <View style={styles.table}>
       {settlement.families.map((f) => (
         <View key={f.familyId} style={styles.row}>
           <Text style={styles.name}>{f.name}</Text>
           <Text style={styles.sub}>
-            净 {centsToEuro(f.netCents)} + 税 {centsToEuro(f.vatCents)}
+            {t('settlement.breakdown', {
+              net: centsToEuro(f.netCents),
+              vat: centsToEuro(f.vatCents),
+            })}
           </Text>
           <Text style={styles.amount}>{centsToEuro(f.grossCents)} €</Text>
         </View>
       ))}
       <View style={[styles.row, styles.totalRow]}>
-        <Text style={styles.name}>合计</Text>
+        <Text style={styles.name}>{t('settlement.total')}</Text>
         <Text style={styles.amount}>
           {centsToEuro(settlement.totals.grossCents)} €
         </Text>
