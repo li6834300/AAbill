@@ -1,6 +1,6 @@
 import { claimableUnits } from '@aabill/api-types';
-import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { centsToEuro, milliToDecimal } from '../lib/format';
 import type { ItemView } from './ItemRow';
 
@@ -38,6 +38,28 @@ export function ClaimItemRow({
 
   const canInc = !locked && myPortion < remaining;
   const canDec = !locked && myPortion > 0;
+
+  // 件数多时逐个点太累:允许直接填数字,确认时校验
+  const [draftText, setDraftText] = useState(String(myPortion));
+  const [inputError, setInputError] = useState<string | null>(null);
+  useEffect(() => {
+    setDraftText(String(myPortion));
+    setInputError(null);
+  }, [myPortion]);
+
+  const confirmTyped = () => {
+    const n = Number(draftText.trim());
+    if (!Number.isInteger(n) || n < 0) {
+      setInputError('请输入 0 或正整数');
+      return;
+    }
+    if (n > remaining) {
+      setInputError(`最多可领 ${remaining} 件`);
+      return;
+    }
+    setInputError(null);
+    onChange(n);
+  };
 
   return (
     <View style={[styles.row, !!conflict && styles.conflictRow]}>
@@ -89,6 +111,34 @@ export function ClaimItemRow({
         )
       )}
 
+      {!item.isShared && !locked && (
+        <>
+          <View style={styles.line}>
+            <Text style={styles.sub}>直接填:</Text>
+            <TextInput
+              testID={`qty-input-${item.id}`}
+              style={styles.qtyInput}
+              value={draftText}
+              onChangeText={(t) => {
+                setDraftText(t);
+                setInputError(null);
+              }}
+              keyboardType="number-pad"
+              onSubmitEditing={confirmTyped}
+            />
+            <Text style={styles.sub}>/ {remaining} 件</Text>
+            <Pressable
+              testID={`qty-confirm-${item.id}`}
+              style={styles.confirmBtn}
+              onPress={confirmTyped}
+            >
+              <Text style={styles.confirmText}>确认</Text>
+            </Pressable>
+          </View>
+          {!!inputError && <Text style={styles.inputError}>{inputError}</Text>}
+        </>
+      )}
+
       {!!conflict && <Text style={styles.conflictText}>⚠️ {conflict}</Text>}
     </View>
   );
@@ -123,4 +173,21 @@ const styles = StyleSheet.create({
   },
   stepOff: { borderColor: '#ccc', opacity: 0.4 },
   stepText: { color: '#0a7', fontWeight: '700', fontSize: 16 },
+  qtyInput: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    minWidth: 56,
+    textAlign: 'center',
+  },
+  confirmBtn: {
+    backgroundColor: '#eef7f3',
+    borderRadius: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  confirmText: { color: '#0a7', fontWeight: '600' },
+  inputError: { color: '#b42318', fontSize: 12 },
 });

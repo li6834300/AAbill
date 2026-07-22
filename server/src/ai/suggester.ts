@@ -1,11 +1,19 @@
 import { createMockSuggester } from './mock-suggester.js';
 import { createOpenAISuggester } from './openai-suggester.js';
 
-/** 给模型看的候选商品(不含价格,只需辨认是不是照片里的东西) */
+/**
+ * 给模型看的候选商品。
+ * **必须带重量/件数与单价**:一张发票上常有 8 块名字完全相同的牛肉
+ * (RINDER FILET ×8),只有重量能区分它们。不给这些信息,再强的模型也只能瞎猜。
+ */
 export interface ClaimCandidate {
   id: string;
   name: string;
   nameZh: string;
+  /** 如 "1.952 KG"、"10 件" */
+  qtyLabel: string;
+  /** 如 "12.291 €/KG"、"2.79 €/件" */
+  priceLabel: string;
 }
 
 export interface SuggestInput {

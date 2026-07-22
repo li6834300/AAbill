@@ -2,12 +2,17 @@ import { z } from 'zod';
 import type { ClaimSuggester, SuggestInput } from './suggester.js';
 
 const SYSTEM_PROMPT = [
-  '你在帮人分账:用户拍了一张"自己买的东西"的照片,下面给你这张账单里的候选商品编号清单。',
-  '判断照片里出现了清单中的哪些商品,只返回这些商品的编号。',
+  '你在帮人分账:用户拍了一张"自己买的东西"的照片,下面给你这张账单里的候选商品清单',
+  '(每项含编号、名称、重量/件数、单价)。判断照片里出现了清单中的哪些商品,只返回编号。',
   '规则:',
-  '- 只返回你**确实在照片里看到**的商品编号;宁可漏也不要乱猜(用户会人工确认,但错报更烦人)。',
+  '- 只返回你**确实在照片里看到**的商品;宁可漏也不要多选 —— 多选比漏选更烦人。',
+  '- 【同名商品必须靠重量区分】清单里常有多条名称完全相同的商品(如 8 块 RINDER FILET),',
+  '  它们只有重量不同。**不要把同名的全选上**:',
+  '  · 照片里的价签/标签上通常印着重量(kg)和金额 —— 读出来,挑重量最接近的那一条;',
+  '  · 看不清重量时,照片里有几件就最多返回几条,不要返回全部同名项。',
+  '- 数量要对得上:照片里只有一块牛肉,就只返回一条牛肉,不要返回八条。',
   '- 编号必须来自给定清单,不要编造。照片里有但清单上没有的东西,忽略。',
-  '- 同一商品只返回一次。',
+  '- 同一编号只返回一次。',
 ].join('\n');
 
 /** 结果只要编号:让模型抄 UUID 容易出错,编号更稳。 */
@@ -22,7 +27,10 @@ export function createOpenAISuggester(opts: {
   return {
     async suggestItems({ fileBase64, mimeType, candidates }: SuggestInput) {
       const list = candidates
-        .map((c, i) => `${i + 1}. ${c.name}${c.nameZh ? `(${c.nameZh})` : ''}`)
+        .map(
+          (c, i) =>
+            `${i + 1}. ${c.name}${c.nameZh ? `(${c.nameZh})` : ''} — ${c.qtyLabel} — ${c.priceLabel}`,
+        )
         .join('\n');
 
       const res = await fetch('https://api.openai.com/v1/responses', {

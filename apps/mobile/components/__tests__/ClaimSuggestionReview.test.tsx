@@ -23,6 +23,14 @@ const items = [
   item('i2', '10er Eier', '鸡蛋'),
 ];
 
+/** 同名牛肉只有重量不同 —— 面板必须显示重量,否则用户没法选 */
+const beef = {
+  ...item('i-beef', 'RINDER FILET', '牛柳'),
+  qtyMilli: 1952,
+  unit: 'KG',
+  unitPriceMilli: 12291,
+};
+
 const base = { items, onConfirm: jest.fn(), onCancel: jest.fn() };
 
 describe('ClaimSuggestionReview', () => {
@@ -62,6 +70,18 @@ describe('ClaimSuggestionReview', () => {
     render(<ClaimSuggestionReview {...base} items={[]} />);
     expect(screen.getByText(/没认出/)).toBeTruthy();
     expect(screen.queryByText(/确认认领/)).toBeNull();
+  });
+
+  it('显示重量与单价 —— 同名商品靠这个区分', () => {
+    render(<ClaimSuggestionReview {...base} items={[beef]} />);
+    expect(screen.getByText(/1\.952 KG/)).toBeTruthy();
+    expect(screen.getByText(/12\.291/)).toBeTruthy();
+  });
+
+  it('计件商品显示件数与单价', () => {
+    render(<ClaimSuggestionReview {...base} items={[items[1]!]} />);
+    expect(screen.getByText(/1 件/)).toBeTruthy();
+    expect(screen.getByText(/19\.90|1\.99/)).toBeTruthy();
   });
 
   it('取消触发 onCancel', () => {

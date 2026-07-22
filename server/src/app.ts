@@ -54,6 +54,14 @@ const ParseBodySchema = z.object({
 /** 十进制金额字符串 → 整数分(如 '18.63' → 1863) */
 const toCents = (decimal: string) => toMilli(decimal) / 10;
 
+/** 整数千分位 → 十进制字符串,去尾零(1952 → '1.952';2790 → '2.79') */
+const decimalOf = (milli: number): string => {
+  const frac = String(milli % 1000)
+    .padStart(3, '0')
+    .replace(/0+$/, '');
+  return `${Math.floor(milli / 1000)}${frac ? `.${frac}` : ''}`;
+};
+
 /** 某商品已被认领的件数(各家之和) */
 const claimedUnits = (bill: Bill, itemId: string): number =>
   bill.claims
@@ -294,10 +302,25 @@ export function createApp({
     );
     if (!parsed.success) return c.json({ error: parsed.error.issues }, 400);
 
-    // 均摊商品由全部家庭平分,不参与认领,故不作候选
+    // 均摊商品由全部家庭平分,不参与认领,故不作候选。
+    // 候选必须带重量/件数与单价:同名商品(如 8 块牛肉)只能靠重量区分。
     const candidates = bill.items
       .filter((i) => !i.isShared)
-      .map((i) => ({ id: i.id, name: i.name, nameZh: i.nameZh }));
+      .map((i) => {
+        const units = claimableUnits(i.qtyMilli);
+        const isWeight = units === 1 && i.qtyMilli % 1000 !== 0;
+        return {
+          id: i.id,
+          name: i.name,
+          nameZh: i.nameZh,
+          qtyLabel: isWeight
+            ? `${decimalOf(i.qtyMilli)} ${i.unit}`
+            : `${units} 件`,
+          priceLabel: isWeight
+            ? `${decimalOf(i.unitPriceMilli)} €/${i.unit}`
+            : `${decimalOf(i.unitPriceMilli)} €/件`,
+        };
+      });
 
     try {
       const suggestedItemIds = await suggester.suggestItems({

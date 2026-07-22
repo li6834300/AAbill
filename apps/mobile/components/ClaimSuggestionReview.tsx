@@ -1,6 +1,20 @@
+import { claimableUnits } from '@aabill/api-types';
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { milliToDecimal } from '../lib/format';
 import type { ItemView } from './ItemRow';
+
+/**
+ * 重量/件数 + 单价 —— 同名商品(如 8 块牛肉)只有靠这个才能分辨,
+ * 不显示的话用户面对一串一模一样的名字根本没法选。
+ */
+function describeQty(i: ItemView): string {
+  const units = claimableUnits(i.qtyMilli);
+  const isWeight = units === 1 && i.qtyMilli % 1000 !== 0;
+  return isWeight
+    ? `${milliToDecimal(i.qtyMilli)} ${i.unit} · ${milliToDecimal(i.unitPriceMilli)} €/${i.unit}`
+    : `${units} 件 · ${milliToDecimal(i.unitPriceMilli)} €/件`;
+}
 
 /**
  * AI 拍照预选结果的确认面板(PRD 二期 PRO)。
@@ -53,7 +67,10 @@ export function ClaimSuggestionReview({
             </Text>
             <View style={styles.flex}>
               <Text style={styles.name}>{i.name}</Text>
-              {!!i.nameZh && <Text style={styles.sub}>{i.nameZh}</Text>}
+              <Text style={styles.sub}>
+                {i.nameZh ? `${i.nameZh} · ` : ''}
+                {describeQty(i)}
+              </Text>
             </View>
           </Pressable>
         ))
