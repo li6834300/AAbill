@@ -14,6 +14,8 @@ import { Hono, type MiddlewareHandler } from 'hono';
 import { cors } from 'hono/cors';
 import { z } from 'zod';
 import { createMockParser } from './ai/mock.js';
+import { createMockSuggester } from './ai/mock-suggester.js';
+import type { ClaimSuggester } from './ai/suggester.js';
 import type { ReceiptParser } from './ai/provider.js';
 import { issueToken, verifyToken } from './auth/jwt.js';
 import {
@@ -29,6 +31,7 @@ export interface AppDeps {
   verifier?: IdentityVerifier;
   jwtSecret?: string;
   fileStore?: FileStore;
+  suggester?: ClaimSuggester;
 }
 
 // Owner 路由把已鉴权用户挂在 context 上
@@ -64,6 +67,7 @@ export function createApp({
   verifier = createUnconfiguredVerifier(),
   jwtSecret = 'dev-insecure-secret',
   fileStore = createNullStore(),
+  suggester = createMockSuggester(),
 }: AppDeps) {
   const app = new Hono<Env>();
   app.use('*', cors());
@@ -260,6 +264,34 @@ export function createApp({
     const bill = await repo.getByToken(c.req.param('token'));
     if (!bill) return c.json({ error: 'share link 无效' }, 404);
     return c.json(bill);
+  });
+
+  // 拍照认领建议(PRD 二期 PRO):只返回建议,不直接写 claims —— 由用户确认后再认领
+  app.post('/share/:token/suggest-claims', async (c) => {
+    const bill = await repo.getByToken(c.req.param('token'));
+    if (!bill) return c.json({ error: 'share link 无效' }, 404);
+    if (bill.status === 'locked')
+      return c.json({ error: '账单已锁定,认领不可再修改' }, 423);
+    const parsed = ParseBodySchema.safeParse(
+      await c.req.json().catch(() => null),
+    );
+    if (!parsed.success) return c.json({ error: parsed.error.issues }, 400);
+
+    // 均摊商品由全部家庭平分,不参与认领,故不作候选
+    const candidates = bill.items
+      .filter((i) => !i.isShared)
+      .map((i) => ({ id: i.id, name: i.name, nameZh: i.nameZh }));
+
+    try {
+      const suggestedItemIds = await suggester.suggestItems({
+        fileBase64: parsed.data.fileBase64,
+        mimeType: parsed.data.mimeType,
+        candidates,
+      });
+      return c.json({ suggestedItemIds });
+    } catch (err) {
+      return c.json({ error: `识别失败: ${String(err)}` }, 502);
+    }
   });
 
   app.put('/share/:token/claims', async (c) => {

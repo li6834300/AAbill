@@ -1,6 +1,7 @@
 import { serve } from '@hono/node-server';
 import { Pool } from 'pg';
 import { selectParser } from './ai/provider.js';
+import { selectSuggester } from './ai/suggester.js';
 import { selectVerifier } from './auth/verifier.js';
 import { createApp } from './app.js';
 import { migrate } from './db/migrate.js';
@@ -10,6 +11,7 @@ import { selectFileStore } from './storage/file-store.js';
 
 const port = Number(process.env.PORT ?? 3000);
 const { kind, parser } = selectParser(process.env);
+const { suggester } = selectSuggester(process.env);
 const verifier = selectVerifier(process.env);
 const { kind: storeKind, store: fileStore } = selectFileStore(process.env);
 
@@ -38,6 +40,7 @@ const app = createApp({
   parser,
   verifier,
   fileStore,
+  suggester,
   ...(jwtSecret ? { jwtSecret } : {}),
 });
 const authKind =

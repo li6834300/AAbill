@@ -118,6 +118,12 @@ export const api = {
     req(`/bills/${id}/families/${familyId}`, { method: 'DELETE' }),
   // ---- Participant(免登录,凭 share_token)----
   getShare: (token: string) => req<Bill>(`/share/${token}`),
+  /** 拍照认领:AI 建议照片里出现的商品(仅建议,需用户确认) */
+  suggestClaims: (token: string, fileBase64: string, mimeType: string) =>
+    req<{ suggestedItemIds: string[] }>(
+      `/share/${token}/suggest-claims`,
+      json({ fileBase64, mimeType }),
+    ),
   putClaim: (token: string, claim: ClaimUpsert) =>
     req<{ claims: Claim[] }>(`/share/${token}/claims`, {
       method: 'PUT',

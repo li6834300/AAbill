@@ -3,7 +3,9 @@ import { useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ClaimItemRow } from '../../components/ClaimItemRow';
+import { ClaimSuggestionReview } from '../../components/ClaimSuggestionReview';
 import { api } from '../../lib/api';
+import { pickInvoice } from '../../lib/pick-invoice';
 
 const POLL_MS = 5000;
 
@@ -13,6 +15,9 @@ export default function ClaimScreen() {
   const [bill, setBill] = useState<Bill | null>(null);
   const [selectedFamilyId, setSelectedFamilyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [suggesting, setSuggesting] = useState(false);
+  // null = 未拍照;数组 = AI 建议结果待用户确认
+  const [suggestedIds, setSuggestedIds] = useState<string[] | null>(null);
 
   const refresh = useCallback(async () => {
     if (!token) return;
@@ -54,6 +59,34 @@ export default function ClaimScreen() {
       await refresh();
     } catch (e) {
       setError(String(e));
+    }
+  };
+
+  /** 拍照 → AI 建议(只建议,确认后才认领) */
+  const photoSuggest = async () => {
+    const picked = await pickInvoice();
+    if (!picked) return;
+    setSuggesting(true);
+    setError(null);
+    try {
+      const { suggestedItemIds } = await api.suggestClaims(
+        token!,
+        picked.base64,
+        picked.mimeType,
+      );
+      setSuggestedIds(suggestedItemIds);
+    } catch (e) {
+      setError(`拍照识别失败:${String(e)}`);
+    } finally {
+      setSuggesting(false);
+    }
+  };
+
+  /** 用户确认后,把选中的商品认领到自己家 */
+  const confirmSuggested = async (itemIds: string[]) => {
+    setSuggestedIds(null);
+    for (const itemId of itemIds) {
+      await setPortion(itemId, 1);
     }
   };
 
@@ -105,6 +138,31 @@ export default function ClaimScreen() {
         </>
       )}
 
+      {selectedFamilyId && !locked && (
+        <>
+          <Pressable
+            style={styles.photoBtn}
+            onPress={() => void photoSuggest()}
+            disabled={suggesting}
+          >
+            <Text style={styles.photoBtnText}>
+              {suggesting ? 'AI 识别中…' : '📷 拍照认领(AI 帮你预选)'}
+            </Text>
+          </Pressable>
+          <Text style={styles.hint}>
+            对着你买的东西拍一张,AI 会猜哪些是你的 —— 结果需要你确认。
+          </Text>
+        </>
+      )}
+
+      {suggestedIds !== null && (
+        <ClaimSuggestionReview
+          items={bill.items.filter((i) => suggestedIds.includes(i.id))}
+          onConfirm={(ids) => void confirmSuggested(ids)}
+          onCancel={() => setSuggestedIds(null)}
+        />
+      )}
+
       <Text style={styles.section}>
         商品(已认领 {claimedCount}/{claimable.length})
       </Text>
@@ -150,4 +208,12 @@ const styles = StyleSheet.create({
   lockedText: { color: '#8a6d00', fontWeight: '600' },
   noticeBox: { backgroundColor: '#fff4e5', borderRadius: 8, padding: 12 },
   noticeText: { color: '#8a6d00', fontWeight: '600' },
+  photoBtn: {
+    backgroundColor: '#0a7',
+    borderRadius: 8,
+    padding: 12,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  photoBtnText: { color: '#fff', fontWeight: '600' },
 });
