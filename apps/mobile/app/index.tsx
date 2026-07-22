@@ -21,7 +21,6 @@ export default function BillListScreen() {
   const router = useRouter();
   const [bills, setBills] = useState<BillSummary[]>([]);
   const [title, setTitle] = useState('');
-  const [taxCountry, setTaxCountry] = useState<'DE' | 'NL'>('DE');
   const [error, setError] = useState<string | null>(null);
   const [authed, setAuthed] = useState(() => getToken() !== null);
   const [email, setEmail] = useState('');
@@ -118,7 +117,8 @@ export default function BillListScreen() {
   const create = async () => {
     if (!title.trim()) return;
     try {
-      const bill = await api.createBill({ title: title.trim(), taxCountry });
+      // 税制不在这里问 —— 它印在发票上,识别时自会读出(读不出再在详情页补选)
+      const bill = await api.createBill({ title: title.trim() });
       setTitle('');
       router.push(`/bill/${bill.id}`);
     } catch (e) {
@@ -142,12 +142,6 @@ export default function BillListScreen() {
           onChangeText={setTitle}
           placeholder="账单标题(如 Metro 05-16)"
         />
-        <Pressable
-          style={styles.country}
-          onPress={() => setTaxCountry(taxCountry === 'DE' ? 'NL' : 'DE')}
-        >
-          <Text style={styles.countryText}>{taxCountry}</Text>
-        </Pressable>
         <Pressable style={styles.btn} onPress={create}>
           <Text style={styles.btnText}>新建</Text>
         </Pressable>
@@ -166,7 +160,7 @@ export default function BillListScreen() {
             <View style={styles.flex}>
               <Text style={styles.billTitle}>{item.title}</Text>
               <Text style={styles.sub}>
-                {item.taxCountry} · {item.status} ·{' '}
+                {item.taxCountry ?? '税制待定'} · {item.status} ·{' '}
                 {item.createdAt.slice(0, 10)}
               </Text>
             </View>
@@ -196,13 +190,6 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     padding: 10,
   },
-  country: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 6,
-    padding: 10,
-  },
-  countryText: { fontWeight: '600' },
   btn: {
     backgroundColor: '#0a7',
     borderRadius: 6,

@@ -18,6 +18,7 @@ import {
   buildSummaryText,
   SettlementTable,
 } from '../../components/SettlementTable';
+import { TaxCountryPicker } from '../../components/TaxCountryPicker';
 import { ValidationBanner } from '../../components/ValidationBanner';
 import {
   api,
@@ -171,9 +172,21 @@ export default function BillScreen() {
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>
-        {bill.title}(税制 {bill.taxCountry})
-      </Text>
+      <Text style={styles.title}>{bill.title}</Text>
+      <TaxCountryPicker
+        value={bill.taxCountry}
+        onChange={async (c) => {
+          setBusy('保存税制…');
+          try {
+            setBill(await api.setTaxCountry(bill.id, c));
+          } catch (e) {
+            setError(String(e));
+          } finally {
+            setBusy(null);
+          }
+        }}
+        busy={!!busy}
+      />
       {error && <Text style={styles.error}>{error}</Text>}
       {busy && <Text style={styles.sub}>{busy}</Text>}
 

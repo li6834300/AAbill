@@ -4,6 +4,7 @@ import type { ReceiptParser } from './provider.js';
 /** 确定性 mock:本地开发与测试用,数据取自 Metro 夹具的三行缩影。 */
 export function createMockParser(): ReceiptParser {
   const receipt: ParsedReceipt = {
+    detectedTaxCountry: 'DE',
     items: [
       {
         name: '10mx30cm KRAFT-ALUFOLIE',

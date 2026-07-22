@@ -15,6 +15,7 @@ const bearer = { authorization: `Bearer ${TOKEN}` };
 // 使 validate 可 0 差额对账(ADR 0003)。
 
 const RECEIPT: ParsedReceipt = {
+  detectedTaxCountry: 'DE',
   items: [
     {
       name: '10mx30cm KRAFT-ALUFOLIE',

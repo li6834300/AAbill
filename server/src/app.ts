@@ -7,6 +7,7 @@ import {
   ItemPatchSchema,
   PrintedTotalsSchema,
   SessionRequestSchema,
+  TaxCountrySetSchema,
   type AuthUser,
   type Bill,
   type Item,
@@ -84,6 +85,8 @@ const unclaimedNames = (bill: Bill): string[] =>
     .map(({ i, missing }) => `${i.name}(还差 ${missing} 件)`);
 
 const LOCKED_MSG = '账单已锁定,不可再修改';
+// 税率按账单国家取(NL 21/9,DE 19/7),国家未知就无从算税 —— 挡在校验/结算之前
+const NO_TAX_MSG = '尚未确定税制,请先选择账单所属国家(发票未能识别出)';
 
 /** 路由薄壳:IO 与 schema 校验在此,金额业务一律调 core。 */
 export function createApp({
@@ -152,7 +155,9 @@ export function createApp({
     const bill: Bill = {
       id: crypto.randomUUID(),
       ownerId: c.get('user').sub,
-      ...parsed.data,
+      title: parsed.data.title,
+      // 建单时通常还没看到发票 —— 留空,等识别时 AI 读出(或用户后补)
+      taxCountry: parsed.data.taxCountry ?? null,
       status: 'draft',
       createdAt: new Date().toISOString(),
       shareToken: crypto.randomUUID(),
@@ -445,6 +450,17 @@ export function createApp({
     return c.json({ claims: bill.claims });
   });
 
+  app.put('/bills/:id/tax-country', async (c) => {
+    const bill = await loadBill(c, c.req.param('id'));
+    if (!bill) return c.json({ error: 'bill not found' }, 404);
+    const parsed = TaxCountrySetSchema.safeParse(
+      await c.req.json().catch(() => null),
+    );
+    if (!parsed.success) return c.json({ error: parsed.error.issues }, 400);
+    bill.taxCountry = parsed.data.taxCountry;
+    return c.json(await repo.save(bill));
+  });
+
   app.post('/bills/:id/parse', async (c) => {
     const bill = await loadBill(c, c.req.param('id'));
     if (!bill) return c.json({ error: 'bill not found' }, 404);
@@ -483,6 +499,10 @@ export function createApp({
       isShared: false,
     }));
     bill.items = [...bill.items.filter((i) => i.source !== 'ai'), ...aiItems];
+    // 税制:AI 读出即用,但**不覆盖**已确定的值 —— 人工设定优先于重新识别
+    if (bill.taxCountry === null && receipt.detectedTaxCountry !== 'UNKNOWN') {
+      bill.taxCountry = receipt.detectedTaxCountry;
+    }
     bill.printedTotals = {
       netCents: toCents(receipt.totals.net),
       vatByClass: {
@@ -497,6 +517,7 @@ export function createApp({
   app.post('/bills/:id/lock', async (c) => {
     const bill = await loadBill(c, c.req.param('id'));
     if (!bill) return c.json({ error: 'bill not found' }, 404);
+    if (bill.taxCountry === null) return c.json({ error: NO_TAX_MSG }, 409);
     if (bill.families.length === 0 || bill.items.length === 0) {
       return c.json({ error: '账单尚未就绪(需先添加家庭与条目)' }, 409);
     }
@@ -514,6 +535,7 @@ export function createApp({
   app.get('/bills/:id/settlement', async (c) => {
     const bill = await loadBill(c, c.req.param('id'));
     if (!bill) return c.json({ error: 'bill not found' }, 404);
+    if (bill.taxCountry === null) return c.json({ error: NO_TAX_MSG }, 409);
     // 尚未就绪(无家庭或无条目)→ 409;详情页会据此隐藏汇总,不能让 core.settle 抛错 500
     if (bill.families.length === 0 || bill.items.length === 0) {
       return c.json({ error: '账单尚未就绪(需先添加家庭与条目)' }, 409);
@@ -558,6 +580,7 @@ export function createApp({
   app.get('/bills/:id/validate', async (c) => {
     const bill = await loadBill(c, c.req.param('id'));
     if (!bill) return c.json({ error: 'bill not found' }, 404);
+    if (bill.taxCountry === null) return c.json({ error: NO_TAX_MSG }, 409);
     if (!bill.printedTotals)
       return c.json({ error: '尚未录入发票印刷合计' }, 409);
     const result = validate({
