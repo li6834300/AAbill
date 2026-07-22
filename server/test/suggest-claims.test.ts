@@ -92,6 +92,48 @@ describe('POST /share/:token/suggest-claims', () => {
     expect(seen.some((c) => c.id === shared.id)).toBe(false);
   });
 
+  it('候选必须带重量/件数与单价 —— 否则同名商品(8块牛肉)无法区分', async () => {
+    let seen: Array<{ qtyLabel: string; priceLabel: string; name: string }> = [];
+    const realApp = testApp({
+      suggester: {
+        suggestItems: async ({ candidates }) => {
+          seen = candidates;
+          return [];
+        },
+      },
+    });
+    const bill = await j<Obj & { shareToken: string }>(
+      await realApp.request(req('/bills', { title: 'M', taxCountry: 'DE' })),
+    );
+    await realApp.request(
+      req(`/bills/${bill.id}/items`, {
+        name: 'RINDER FILET',
+        qtyMilli: 1952, // 1.952 kg
+        unit: 'KG',
+        unitPriceMilli: 12291,
+        taxClass: 'B',
+      }),
+    );
+    await realApp.request(
+      req(`/bills/${bill.id}/items`, {
+        name: '10er Eier',
+        qtyMilli: 10000, // 10 件
+        unit: 'PG',
+        unitPriceMilli: 2790,
+        taxClass: 'B',
+      }),
+    );
+    await realApp.request(
+      req(`/share/${bill.shareToken}/suggest-claims`, PHOTO, 'POST', false),
+    );
+    const beef = seen.find((c) => c.name === 'RINDER FILET');
+    const eggs = seen.find((c) => c.name === '10er Eier');
+    expect(beef?.qtyLabel).toBe('1.952 KG');
+    expect(beef?.priceLabel).toBe('12.291 €/KG');
+    expect(eggs?.qtyLabel).toBe('10 件');
+    expect(eggs?.priceLabel).toBe('2.79 €/件');
+  });
+
   it('免登录可用;锁定后 423;错误 token 404;缺图 400', async () => {
     const { app, bill } = await setup();
     // 无 Authorization 也能用(Participant 路由)
@@ -150,9 +192,27 @@ describe('openai suggester(stub fetch)', () => {
   afterEach(() => vi.unstubAllGlobals());
 
   const candidates = [
-    { id: 'id-milk', name: 'ARO MILCH', nameZh: '牛奶' },
-    { id: 'id-eggs', name: '10er Eier', nameZh: '鸡蛋' },
-    { id: 'id-beef', name: 'RINDER FILET', nameZh: '牛柳' },
+    {
+      id: 'id-milk',
+      name: 'ARO MILCH',
+      nameZh: '牛奶',
+      qtyLabel: '1 件',
+      priceLabel: '1.29 €/件',
+    },
+    {
+      id: 'id-eggs',
+      name: '10er Eier',
+      nameZh: '鸡蛋',
+      qtyLabel: '10 件',
+      priceLabel: '2.79 €/件',
+    },
+    {
+      id: 'id-beef',
+      name: 'RINDER FILET',
+      nameZh: '牛柳',
+      qtyLabel: '1.952 KG',
+      priceLabel: '12.291 €/KG',
+    },
   ];
   const reply = (json: string) =>
     Response.json({
@@ -180,9 +240,12 @@ describe('openai suggester(stub fetch)', () => {
       .flatMap((m) => m.content)
       .map((p) => p.text ?? '')
       .join('\n');
-    // 候选以编号形式给模型
+    // 候选以编号形式给模型,并**必须带重量/件数与单价** ——
+    // 同名的 8 块牛肉只有靠重量才能区分,不给这些信息换什么模型都选不对
     expect(text).toContain('1. ARO MILCH');
     expect(text).toContain('3. RINDER FILET');
+    expect(text).toContain('1.952 KG');
+    expect(text).toContain('12.291 €/KG');
   });
 
   it('越界/重复编号被忽略,不会崩', async () => {

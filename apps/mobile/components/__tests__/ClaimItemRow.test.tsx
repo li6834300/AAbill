@@ -112,3 +112,51 @@ describe('ClaimItemRow(件数版)', () => {
     expect(screen.getByText(/只剩 7 件可认领/)).toBeTruthy();
   });
 });
+
+// 件数多时逐个点 + 太累:允许直接填数字,点确认一次到位(带校验)
+describe('ClaimItemRow 手动输入件数', () => {
+  const typeAndConfirm = (value: string) => {
+    fireEvent.changeText(screen.getByTestId('qty-input-i-eggs'), value);
+    fireEvent.press(screen.getByTestId('qty-confirm-i-eggs'));
+  };
+
+  it('输入合法件数 → 确认后回传', () => {
+    const onChange = jest.fn();
+    render(<ClaimItemRow {...base} onChange={onChange} />);
+    typeAndConfirm('6');
+    expect(onChange).toHaveBeenCalledWith(6);
+  });
+
+  it('超过可领件数(共10件填11)→ 报错且不回传', () => {
+    const onChange = jest.fn();
+    render(<ClaimItemRow {...base} onChange={onChange} />);
+    typeAndConfirm('11');
+    expect(onChange).not.toHaveBeenCalled();
+    expect(screen.getByText(/最多.*10/)).toBeTruthy();
+  });
+
+  it('别家已领 3 时,最多只能填 7', () => {
+    const onChange = jest.fn();
+    render(<ClaimItemRow {...base} othersPortions={3} onChange={onChange} />);
+    typeAndConfirm('8');
+    expect(onChange).not.toHaveBeenCalled();
+    expect(screen.getByText(/最多.*7/)).toBeTruthy();
+  });
+
+  it('非数字/负数 → 报错不回传', () => {
+    const onChange = jest.fn();
+    render(<ClaimItemRow {...base} onChange={onChange} />);
+    typeAndConfirm('abc');
+    expect(onChange).not.toHaveBeenCalled();
+    typeAndConfirm('-2');
+    expect(onChange).not.toHaveBeenCalled();
+    expect(screen.getByText(/请输入/)).toBeTruthy();
+  });
+
+  it('填 0 = 取消认领,允许', () => {
+    const onChange = jest.fn();
+    render(<ClaimItemRow {...base} myPortion={5} onChange={onChange} />);
+    typeAndConfirm('0');
+    expect(onChange).toHaveBeenCalledWith(0);
+  });
+});
