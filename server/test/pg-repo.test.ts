@@ -46,6 +46,7 @@ const sampleBill = (): Bill => ({
   ownerId: 'owner-1',
   title: 'Metro 05-16',
   taxCountry: 'DE',
+  taxRates: { A: 1900, B: 700 },
   status: 'draft',
   createdAt: new Date().toISOString(),
   shareToken: crypto.randomUUID(),
@@ -129,6 +130,30 @@ describe('PostgresBillRepo', () => {
     bill.claims = [];
     await repo.save(bill);
     expect(await repo.get(bill.id)).toEqual(bill);
+  });
+
+  it('save:改税制与税率会落库(upsert 的 do update 曾漏掉这两列)', async () => {
+    const repo = createPostgresRepo(pool);
+    const bill = sampleBill();
+    await repo.create(bill);
+
+    // 发票印的税率与国家表不同(表会过时),必须原样存下来
+    bill.taxCountry = 'FR';
+    bill.taxRates = { A: 2000, B: 550 };
+    await repo.save(bill);
+
+    const reloaded = await createPostgresRepo(pool).get(bill.id);
+    expect(reloaded?.taxCountry).toBe('FR');
+    expect(reloaded?.taxRates).toEqual({ A: 2000, B: 550 });
+  });
+
+  it('税率未定的账单往返后仍为 null', async () => {
+    const repo = createPostgresRepo(pool);
+    const bill = { ...sampleBill(), taxCountry: null, taxRates: null };
+    await repo.create(bill);
+    const reloaded = await repo.get(bill.id);
+    expect(reloaded?.taxCountry).toBeNull();
+    expect(reloaded?.taxRates).toBeNull();
   });
 
   it('getByToken 命中;未知 token/id 返回 undefined', async () => {

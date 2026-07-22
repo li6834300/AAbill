@@ -24,8 +24,10 @@ const req = (path: string, body?: unknown, method = 'POST') =>
 
 const receiptFrom = (
   detectedTaxCountry: ParsedReceipt['detectedTaxCountry'],
+  detectedRates: ParsedReceipt['detectedRates'] = { A: '', B: '' },
 ): ParsedReceipt => ({
   detectedTaxCountry,
+  detectedRates,
   items: [
     {
       name: 'Eier',
@@ -42,8 +44,9 @@ const receiptFrom = (
 
 const parserOf = (
   detected: ParsedReceipt['detectedTaxCountry'],
+  rates: ParsedReceipt['detectedRates'] = { A: '', B: '' },
 ): ReceiptParser => ({
-  parseReceipt: async () => receiptFrom(detected),
+  parseReceipt: async () => receiptFrom(detected, rates),
 });
 
 const PHOTO = { fileBase64: 'aGk=', mimeType: 'image/jpeg' };
@@ -100,6 +103,58 @@ describe('识别发票时自动确定税制', () => {
   });
 });
 
+describe('税率优先取发票印刷值,国家表只作兜底', () => {
+  const parseWith = async (
+    detected: ParsedReceipt['detectedTaxCountry'],
+    rates: ParsedReceipt['detectedRates'],
+  ) => {
+    const app = testApp({ parser: parserOf(detected, rates) });
+    const bill = await j<Obj>(await app.request(req('/bills', { title: 'M' })));
+    return j<{ taxCountry: unknown; taxRates: unknown }>(
+      await app.request(req(`/bills/${bill.id}/parse`, PHOTO)),
+    );
+  };
+
+  it('读出发票印刷税率 → 直接用(欧洲发票用逗号做小数点)', async () => {
+    const after = await parseWith('DE', { A: '19,00', B: '7,00' });
+    expect(after.taxRates).toEqual({ A: 1900, B: 700 });
+  });
+
+  it('发票税率与国家表不一致时,以发票为准 —— 表会过时,发票不会', async () => {
+    const after = await parseWith('DE', { A: '20,00', B: '5,50' });
+    expect(after.taxCountry).toBe('DE');
+    expect(after.taxRates).toEqual({ A: 2000, B: 550 });
+  });
+
+  it('读出国家但读不出税率 → 回落到国家表', async () => {
+    const after = await parseWith('NL', { A: '', B: '' });
+    expect(after.taxRates).toEqual({ A: 2100, B: 900 });
+  });
+
+  it('税率是乱码 → 不猜,回落到国家表', async () => {
+    const after = await parseWith('DE', { A: 'n/a', B: '???' });
+    expect(after.taxRates).toEqual({ A: 1900, B: 700 });
+  });
+
+  it('国家读不出但税率读出来了 → 照样能算(税率才是算钱要的东西)', async () => {
+    const after = await parseWith('UNKNOWN', { A: '21,00', B: '9,00' });
+    expect(after.taxCountry).toBeNull();
+    expect(after.taxRates).toEqual({ A: 2100, B: 900 });
+  });
+
+  it('都读不出 → 两者皆 null', async () => {
+    const after = await parseWith('UNKNOWN', { A: '', B: '' });
+    expect(after.taxCountry).toBeNull();
+    expect(after.taxRates).toBeNull();
+  });
+
+  it('支持德荷之外的国家(法国 20% / 5.5%)', async () => {
+    const after = await parseWith('FR', { A: '', B: '' });
+    expect(after.taxCountry).toBe('FR');
+    expect(after.taxRates).toEqual({ A: 2000, B: 550 });
+  });
+});
+
 describe('税制未知时不能校验/结算/锁定', () => {
   const setupUnknown = async () => {
     const app = testApp({ parser: parserOf('UNKNOWN') });
@@ -145,12 +200,15 @@ describe('PUT /bills/:id/tax-country(识别不出时人工指定)', () => {
       req(`/bills/${bill.id}/tax-country`, { taxCountry: 'NL' }, 'PUT'),
     );
     expect(res.status).toBe(200);
-    expect((await j<{ taxCountry: string }>(res)).taxCountry).toBe('NL');
+    const saved = await j<{ taxCountry: string; taxRates: unknown }>(res);
+    expect(saved.taxCountry).toBe('NL');
+    // 人工选国家 → 税率从国家表填上,否则选了也算不了钱
+    expect(saved.taxRates).toEqual({ A: 2100, B: 900 });
 
     expect(
       (
         await app.request(
-          req(`/bills/${bill.id}/tax-country`, { taxCountry: 'FR' }, 'PUT'),
+          req(`/bills/${bill.id}/tax-country`, { taxCountry: 'XX' }, 'PUT'),
         )
       ).status,
     ).toBe(400);
