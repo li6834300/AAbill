@@ -34,7 +34,7 @@ const json = (body: unknown): RequestInit => ({
 export interface BillSummary {
   id: string;
   title: string;
-  taxCountry: 'DE' | 'NL';
+  taxCountry: 'DE' | 'NL' | null;
   status: string;
   createdAt: string;
 }
@@ -102,8 +102,13 @@ export const api = {
   loginWithGoogle: (idToken: string) => exchangeSession('google', idToken),
 
   listBills: () => req<{ bills: BillSummary[] }>('/bills'),
-  createBill: (body: { title: string; taxCountry: 'DE' | 'NL' }) =>
-    req<Bill>('/bills', json(body)),
+  createBill: (body: { title: string }) => req<Bill>('/bills', json(body)),
+  /** 发票没识别出税制时,由用户补选 */
+  setTaxCountry: (id: string, taxCountry: 'DE' | 'NL') =>
+    req<Bill>(`/bills/${id}/tax-country`, {
+      method: 'PUT',
+      body: JSON.stringify({ taxCountry }),
+    }),
   getBill: (id: string) => req<Bill>(`/bills/${id}`),
   parse: (id: string, fileBase64: string, mimeType: string) =>
     req<Bill>(`/bills/${id}/parse`, json({ fileBase64, mimeType })),

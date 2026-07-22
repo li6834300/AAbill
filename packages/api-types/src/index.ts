@@ -9,6 +9,12 @@ export const BillStatusSchema = z.enum(['draft', 'claiming', 'locked']);
 
 export const BillCreateSchema = z.object({
   title: z.string().min(1),
+  /** 建单时通常还没看到发票 —— 留空,识别时由 AI 读出;读不出再让用户选 */
+  taxCountry: TaxCountrySchema.optional(),
+});
+
+/** 识别不出税制时,由用户人工指定 */
+export const TaxCountrySetSchema = z.object({
   taxCountry: TaxCountrySchema,
 });
 
@@ -108,7 +114,8 @@ export const BillSchema = z.object({
   /** 归属 Owner(JWT sub);Participant 无归属 */
   ownerId: z.string(),
   title: z.string(),
-  taxCountry: TaxCountrySchema,
+  /** null = 尚未确定税制(AI 没识别出且用户还没选) */
+  taxCountry: TaxCountrySchema.nullable(),
   status: BillStatusSchema,
   createdAt: z.string(),
   /** 免登录分享凭证(PRD §5.3):持有者可读账单、写 claims */
@@ -138,6 +145,8 @@ export const ParsedItemSchema = z.object({
 });
 
 export const ParsedReceiptSchema = z.object({
+  /** 从发票上读出的国家/税制;读不出返回 UNKNOWN,由用户指定 */
+  detectedTaxCountry: z.enum(['DE', 'NL', 'UNKNOWN']),
   items: z.array(ParsedItemSchema),
   totals: z.object({
     net: decimalCents,
@@ -151,6 +160,7 @@ export type TaxCountry = z.infer<typeof TaxCountrySchema>;
 export type TaxClass = z.infer<typeof TaxClassSchema>;
 export type BillStatus = z.infer<typeof BillStatusSchema>;
 export type BillCreate = z.infer<typeof BillCreateSchema>;
+export type TaxCountrySet = z.infer<typeof TaxCountrySetSchema>;
 export type ItemInput = z.infer<typeof ItemInputSchema>;
 export type ItemPatch = z.infer<typeof ItemPatchSchema>;
 export type Item = z.infer<typeof ItemSchema>;

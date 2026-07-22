@@ -11,6 +11,12 @@ import {
 // - AI 识别输出(ParsedReceipt)保持发票原貌:十进制字符串,由 server 边界转换
 
 describe('BillCreateSchema', () => {
+  it('税制可省略 —— 建单时还没看到发票', () => {
+    expect(BillCreateSchema.parse({ title: 'Metro' })).toEqual({
+      title: 'Metro',
+    });
+  });
+
   it('接受标题 + 税制国家', () => {
     expect(
       BillCreateSchema.parse({ title: 'Metro 2026-05-16', taxCountry: 'DE' }),
@@ -101,6 +107,7 @@ describe('PrintedTotalsSchema', () => {
 
 describe('ParsedReceiptSchema(AI 识别输出,十进制字符串)', () => {
   const receipt = {
+    detectedTaxCountry: 'DE',
     items: [
       {
         name: 'MC HAE.OBERKEULE',
@@ -117,6 +124,18 @@ describe('ParsedReceiptSchema(AI 识别输出,十进制字符串)', () => {
 
   it('接受发票原貌的十进制字符串', () => {
     expect(ParsedReceiptSchema.parse(receipt)).toEqual(receipt);
+  });
+
+  it('税制必填 —— 读不出要显式说 UNKNOWN,不能省略', () => {
+    const noCountry: Record<string, unknown> = structuredClone(receipt);
+    delete noCountry.detectedTaxCountry;
+    expect(ParsedReceiptSchema.safeParse(noCountry).success).toBe(false);
+    expect(
+      ParsedReceiptSchema.safeParse({
+        ...receipt,
+        detectedTaxCountry: 'UNKNOWN',
+      }).success,
+    ).toBe(true);
   });
 
   it('拒绝超精度数量(>3 位小数)与非法金额(>2 位小数)', () => {

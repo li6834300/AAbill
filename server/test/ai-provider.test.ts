@@ -21,6 +21,7 @@ const responsesReply = (json: string) =>
   });
 
 const receiptJson = JSON.stringify({
+  detectedTaxCountry: 'DE',
   items: [
     {
       name: 'Eier',

@@ -14,6 +14,9 @@ const SYSTEM_PROMPT = [
   '- qty 与 unitPriceNet 保持发票原样精度(最多 3 位小数);金额最多 2 位小数。',
   '- taxClass 为该行的税类字母(GESAMT 列后的 M 标记,A 或 B)。',
   '- nameZh 给出简短中文翻译。',
+  '- 【税制国家】detectedTaxCountry:判断这张发票开自哪国。依据发票上的地址/邮编、',
+  '  语言、税号格式(德国 USt-IdNr. DE…、荷兰 BTW NL…)、税率(德国 19%/7%,荷兰 21%/9%)、',
+  '  货币与门店名。目前只支持 DE 与 NL;若证据不足或是其他国家,返回 UNKNOWN,不要猜。',
   '- totals 抄发票印刷的最终合计(全部折扣后):净额、A 税额、B 税额、含税总额。',
   '- 自检:所有 lineNet 之和应约等于 totals.net;若明显对不上,说明漏了行或用错了价格列,请重查。',
 ].join('\n');

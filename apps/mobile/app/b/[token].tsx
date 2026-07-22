@@ -54,7 +54,8 @@ export default function ClaimScreen() {
   }
 
   const locked = bill.status === 'locked';
-  const rates = DEFAULT_TAX_RATES[bill.taxCountry];
+  // 税制未定(发票没读出、Owner 还没补选)→ 税额无从算,汇总只给净额
+  const rates = bill.taxCountry ? DEFAULT_TAX_RATES[bill.taxCountry] : null;
 
   /** 选家庭时,用服务端已有的该家认领初始化本地草稿(轮询不会覆盖用户正在改的) */
   const selectFamily = (familyId: string) => {
@@ -105,7 +106,7 @@ export default function ClaimScreen() {
       const per = isWeight
         ? Math.round((i.qtyMilli * i.unitPriceMilli) / 10000)
         : Math.round(i.unitPriceMilli / 10);
-      return sum + vatCents(portion * per, rates[i.taxClass]);
+      return rates ? sum + vatCents(portion * per, rates[i.taxClass]) : sum;
     }, 0);
   const chosenUnits = chosen.reduce((s, i) => s + (draft[i.id] ?? 0), 0);
 
@@ -268,10 +269,12 @@ export default function ClaimScreen() {
             已选 {chosen.length} 种 / 共 {chosenUnits} 件
           </Text>
           <Text style={styles.summaryTotal}>
-            预计应付 {centsToEuro(grossCents)} €
+            预计应付 {centsToEuro(grossCents)} €{rates ? '' : '(未含税)'}
           </Text>
           <Text style={styles.hint}>
-            净额 {centsToEuro(netCents)} € + 税;最终以发起人锁定后的汇总为准。
+            {rates
+              ? `净额 ${centsToEuro(netCents)} € + 税;最终以发起人锁定后的汇总为准。`
+              : '发起人尚未确定税制,暂只显示净额;最终以锁定后的汇总为准。'}
           </Text>
           <Pressable
             style={[styles.submitBtn, submitting && styles.disabled]}
