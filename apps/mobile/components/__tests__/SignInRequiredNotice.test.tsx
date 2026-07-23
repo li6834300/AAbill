@@ -28,6 +28,6 @@ describe('SignInRequiredNotice', () => {
   it('跟随界面语言(德语)', () => {
     setLang('de');
     render(<SignInRequiredNotice onSignIn={jest.fn()} />);
-    expect(screen.getByText(/Anmeld|anmeld/)).toBeTruthy();
+    expect(screen.getAllByText(/Anmeld/i).length).toBeGreaterThan(0);
   });
 });
