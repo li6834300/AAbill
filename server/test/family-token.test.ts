@@ -97,7 +97,11 @@ describe('POST /share/:token/enter:凭口令进入自己那家', () => {
       items: Array<{ id: string; remaining: number; myPortion: number }>;
     }>(
       await app.request(
-        post(`/share/${bill.shareToken}/enter`, { code: rio.accessCode }, false),
+        post(
+          `/share/${bill.shareToken}/enter`,
+          { code: rio.accessCode },
+          false,
+        ),
       ),
     );
     expect(view.family).toEqual({ id: rio.id, name: 'Rio家' });
@@ -128,7 +132,11 @@ describe('POST /share/:token/enter:凭口令进入自己那家', () => {
       items: Array<{ id: string; remaining: number; myPortion: number }>;
     }>(
       await app.request(
-        post(`/share/${bill.shareToken}/enter`, { code: rio.accessCode }, false),
+        post(
+          `/share/${bill.shareToken}/enter`,
+          { code: rio.accessCode },
+          false,
+        ),
       ),
     );
     expect(view.items[0]?.remaining).toBe(7); // 10 − 3
@@ -148,7 +156,11 @@ describe('凭口令认领(不再由客户端传 familyId)', () => {
     );
     const view = await j<{ items: Array<{ myPortion: number }> }>(
       await app.request(
-        post(`/share/${bill.shareToken}/enter`, { code: rio.accessCode }, false),
+        post(
+          `/share/${bill.shareToken}/enter`,
+          { code: rio.accessCode },
+          false,
+        ),
       ),
     );
     expect(view.items[0]?.myPortion).toBe(4);
@@ -163,6 +175,24 @@ describe('凭口令认领(不再由客户端传 familyId)', () => {
       }),
     );
     expect(res.status).toBe(403);
+  });
+
+  it('均摊商品不可认领(与 claims 互斥)→ 409', async () => {
+    const { app, bill, rio, item } = await setup();
+    await app.request(
+      new Request(`http://x/bills/${bill.id}/items/${item.id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json', ...bearer },
+        body: JSON.stringify({ isShared: true }),
+      }),
+    );
+    const res = await app.request(
+      put(`/share/${bill.shareToken}/claims/batch`, {
+        code: rio.accessCode,
+        claims: [{ itemId: item.id, portion: 1 }],
+      }),
+    );
+    expect(res.status).toBe(409);
   });
 
   it('超出剩余量 → 409(与别家已领相加)', async () => {

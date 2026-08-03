@@ -40,13 +40,26 @@ async function setup() {
       }),
     ),
   );
-  const rio = await json<Obj>(
+  const rio = await json<Obj & { accessCode: string }>(
     await app.request(post(`/bills/${bill.id}/families`, { name: 'Rio家' })),
   );
-  const tang = await json<Obj>(
+  const tang = await json<Obj & { accessCode: string }>(
     await app.request(post(`/bills/${bill.id}/families`, { name: '老唐家' })),
   );
-  return { app, bill, item, rio, tang };
+  // 凭口令批量认领(participant);读 claims 走 owner 端点
+  const batch = (code: string, claims: unknown) =>
+    app.request(
+      post(`/share/${bill.shareToken}/claims/batch`, { code, claims }, 'PUT'),
+    );
+  const ownerClaims = async () =>
+    (
+      await json<{ claims: unknown[] }>(
+        await app.request(
+          new Request(`http://x/bills/${bill.id}`, { headers: bearer }),
+        ),
+      )
+    ).claims;
+  return { app, bill, item, rio, tang, batch, ownerClaims };
 }
 
 describe('shareToken', () => {
@@ -58,20 +71,15 @@ describe('shareToken', () => {
   });
 });
 
-describe('GET /share/:token(Participant 读账单)', () => {
-  it('持 token 可读条目/家庭/claims/状态', async () => {
-    const { app, bill, item } = await setup();
+describe('GET /share/:token(输入口令前的最小首屏)', () => {
+  // 明细在 POST /share/:token/enter 之后才可见,见 family-token.test.ts
+  it('只给标题/状态/有无家庭', async () => {
+    const { app, bill } = await setup();
     const res = await app.request(`http://x/share/${bill.shareToken}`);
     expect(res.status).toBe(200);
-    const view = await json<{
-      items: Obj[];
-      families: Obj[];
-      claims: unknown[];
-      status: string;
-    }>(res);
-    expect(view.items[0]!.id).toBe(item.id);
-    expect(view.families).toHaveLength(2);
-    expect(view.claims).toEqual([]);
+    const view = await json<Record<string, unknown>>(res);
+    expect(view.title).toBe('Metro');
+    expect(view.hasFamilies).toBe(true);
     expect(view.status).toBe('draft');
   });
 
@@ -81,158 +89,17 @@ describe('GET /share/:token(Participant 读账单)', () => {
   });
 });
 
-describe('PUT /share/:token/claims(认领)', () => {
-  it('upsert:同 (item, family) 重复提交更新份数;portion=0 删除', async () => {
-    const { app, bill, item, rio } = await setup();
-    const put = (portion: number) =>
-      app.request(
-        post(
-          `/share/${bill.shareToken}/claims`,
-          { itemId: item.id, familyId: rio.id, portion },
-          'PUT',
-        ),
-      );
-
-    let res = await put(1);
-    expect(res.status).toBe(200);
-    let { claims } = await json<{ claims: Array<Obj & { portion: number }> }>(
-      res,
-    );
-    expect(claims).toHaveLength(1);
-    expect(claims[0]).toMatchObject({
-      itemId: item.id,
-      familyId: rio.id,
-      portion: 1,
-    });
-
-    res = await put(2);
-    ({ claims } = await json<{ claims: Array<Obj & { portion: number }> }>(
-      res,
-    ));
-    expect(claims).toHaveLength(1);
-    expect(claims[0]!.portion).toBe(2);
-
-    res = await put(0);
-    ({ claims } = await json<{ claims: Array<Obj & { portion: number }> }>(
-      res,
-    ));
-    expect(claims).toHaveLength(0);
-  });
-
-  it('同一商品可多家共享(C2)', async () => {
-    const { app, bill, item, rio, tang } = await setup();
-    await app.request(
-      post(
-        `/share/${bill.shareToken}/claims`,
-        { itemId: item.id, familyId: rio.id, portion: 1 },
-        'PUT',
-      ),
-    );
-    const res = await app.request(
-      post(
-        `/share/${bill.shareToken}/claims`,
-        { itemId: item.id, familyId: tang.id, portion: 1 },
-        'PUT',
-      ),
-    );
-    const { claims } = await json<{ claims: unknown[] }>(res);
-    expect(claims).toHaveLength(2);
-  });
-
-  it('均摊商品不可认领(与 claims 互斥)→ 409', async () => {
-    const { app, bill, item, rio } = await setup();
-    await app.request(
-      post(`/bills/${bill.id}/items/${item.id}`, { isShared: true }, 'PATCH'),
-    );
-    const res = await app.request(
-      post(
-        `/share/${bill.shareToken}/claims`,
-        { itemId: item.id, familyId: rio.id, portion: 1 },
-        'PUT',
-      ),
-    );
-    expect(res.status).toBe(409);
-  });
-
-  it('未知 item/family → 404;非法 portion → 400;错误 token → 404', async () => {
-    const { app, bill, item, rio } = await setup();
-    const token = bill.shareToken;
-    expect(
-      (
-        await app.request(
-          post(
-            `/share/${token}/claims`,
-            { itemId: 'nope', familyId: rio.id, portion: 1 },
-            'PUT',
-          ),
-        )
-      ).status,
-    ).toBe(404);
-    expect(
-      (
-        await app.request(
-          post(
-            `/share/${token}/claims`,
-            { itemId: item.id, familyId: 'nope', portion: 1 },
-            'PUT',
-          ),
-        )
-      ).status,
-    ).toBe(404);
-    expect(
-      (
-        await app.request(
-          post(
-            `/share/${token}/claims`,
-            { itemId: item.id, familyId: rio.id, portion: 1.5 },
-            'PUT',
-          ),
-        )
-      ).status,
-    ).toBe(400);
-    expect(
-      (
-        await app.request(
-          post(
-            `/share/wrong/claims`,
-            { itemId: item.id, familyId: rio.id, portion: 1 },
-            'PUT',
-          ),
-        )
-      ).status,
-    ).toBe(404);
-  });
-});
-
 describe('owner 编辑与 claims 的一致性', () => {
   it('删条目/删家庭级联清除相关 claims', async () => {
-    const { app, bill, item, rio, tang } = await setup();
-    const token = bill.shareToken;
-    await app.request(
-      post(
-        `/share/${token}/claims`,
-        { itemId: item.id, familyId: rio.id, portion: 1 },
-        'PUT',
-      ),
-    );
-    await app.request(
-      post(
-        `/share/${token}/claims`,
-        { itemId: item.id, familyId: tang.id, portion: 1 },
-        'PUT',
-      ),
-    );
+    const { app, bill, item, rio, tang, batch, ownerClaims } = await setup();
+    await batch(rio.accessCode, [{ itemId: item.id, portion: 1 }]);
+    await batch(tang.accessCode, [{ itemId: item.id, portion: 1 }]);
+    expect(await ownerClaims()).toHaveLength(2);
 
     await app.request(del(`/bills/${bill.id}/families/${rio.id}`));
-    let view = await json<{ claims: unknown[] }>(
-      await app.request(`http://x/share/${token}`),
-    );
-    expect(view.claims).toHaveLength(1);
+    expect(await ownerClaims()).toHaveLength(1);
 
     await app.request(del(`/bills/${bill.id}/items/${item.id}`));
-    view = await json<{ claims: unknown[] }>(
-      await app.request(`http://x/share/${token}`),
-    );
-    expect(view.claims).toHaveLength(0);
+    expect(await ownerClaims()).toHaveLength(0);
   });
 });

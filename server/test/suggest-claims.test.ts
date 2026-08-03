@@ -70,9 +70,11 @@ describe('POST /share/:token/suggest-claims', () => {
     const out = await j<{ suggestedItemIds: string[] }>(res);
     expect(out.suggestedItemIds).toEqual([milk.id, beef.id]);
 
-    // 只是建议:此时还没有任何认领
+    // 只是建议:此时还没有任何认领(走 owner 端点读 claims)
     const view = await j<{ claims: unknown[] }>(
-      await app.request(`http://x/share/${bill.shareToken}`),
+      await app.request(
+        new Request(`http://x/bills/${bill.id}`, { headers: bearer }),
+      ),
     );
     expect(view.claims).toEqual([]);
   });

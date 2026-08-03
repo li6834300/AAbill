@@ -1,8 +1,6 @@
 import type {
   AuthUser,
   Bill,
-  Claim,
-  ClaimUpsert,
   ItemInput,
   Lang,
   PrintedTotals,
@@ -164,11 +162,6 @@ export const api = {
       `/share/${token}/suggest-claims`,
       json({ fileBase64, mimeType }),
     ),
-  putClaim: (token: string, claim: ClaimUpsert) =>
-    req<{ claims: Claim[] }>(`/share/${token}/claims`, {
-      method: 'PUT',
-      body: JSON.stringify(claim),
-    }),
 
   // ---- M5 锁定与结算 ----
   lock: (id: string) => req<Bill>(`/bills/${id}/lock`, { method: 'POST' }),
