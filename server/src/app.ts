@@ -1,4 +1,5 @@
 import {
+  AccessCodeSchema,
   BillCreateSchema,
   ClaimBatchSchema,
   claimableUnits,
@@ -402,10 +403,13 @@ export function createApp({
     if (!bill) return c.json({ error: 'share link 无效' }, 404);
     if (bill.status === 'locked')
       return c.json({ error: '账单已锁定,认领不可再修改' }, 423);
-    const parsed = ParseBodySchema.safeParse(
-      await c.req.json().catch(() => null),
-    );
+    const parsed = ParseBodySchema.extend({
+      code: AccessCodeSchema,
+    }).safeParse(await c.req.json().catch(() => null));
     if (!parsed.success) return c.json({ error: parsed.error.issues }, 400);
+    // 拍照认领也需口令 —— 否则持分享链接者能拿到商品列表,破坏"只看自己"
+    if (!bill.families.some((f) => f.accessCode === parsed.data.code))
+      return c.json({ error: '口令不正确' }, 403);
 
     // 均摊商品由全部家庭平分,不参与认领,故不作候选。
     // 候选必须带重量/件数与单价:同名商品(如 8 块牛肉)只能靠重量区分。

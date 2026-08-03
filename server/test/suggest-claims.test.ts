@@ -51,20 +51,28 @@ async function setup(suggester?: ClaimSuggester) {
   const eggs = await add('10er Eier');
   const beef = await add('RINDER FILET');
   const shared = await add('SALZ', true);
-  return { app, bill, milk, eggs, beef, shared };
+  const fam = await j<Obj & { accessCode: string }>(
+    await app.request(req(`/bills/${bill.id}/families`, { name: '我家' })),
+  );
+  return { app, bill, milk, eggs, beef, shared, code: fam.accessCode };
 }
 
 describe('POST /share/:token/suggest-claims', () => {
   it('返回 AI 建议的商品 id(不直接创建认领)', async () => {
     // 建议器挑第 1、3 个候选
-    const { app, bill, milk, beef } = await setup({
+    const { app, bill, milk, beef, code } = await setup({
       suggestItems: async ({ candidates }) => [
         candidates[0]!.id,
         candidates[2]!.id,
       ],
     });
     const res = await app.request(
-      req(`/share/${bill.shareToken}/suggest-claims`, PHOTO, 'POST', false),
+      req(
+        `/share/${bill.shareToken}/suggest-claims`,
+        { ...PHOTO, code },
+        'POST',
+        false,
+      ),
     );
     expect(res.status).toBe(200);
     const out = await j<{ suggestedItemIds: string[] }>(res);
@@ -81,14 +89,19 @@ describe('POST /share/:token/suggest-claims', () => {
 
   it('候选里排除均摊商品(均摊无需认领)', async () => {
     let seen: Array<{ id: string; name: string }> = [];
-    const { app, bill, shared } = await setup({
+    const { app, bill, shared, code } = await setup({
       suggestItems: async ({ candidates }) => {
         seen = candidates;
         return [];
       },
     });
     await app.request(
-      req(`/share/${bill.shareToken}/suggest-claims`, PHOTO, 'POST', false),
+      req(
+        `/share/${bill.shareToken}/suggest-claims`,
+        { ...PHOTO, code },
+        'POST',
+        false,
+      ),
     );
     expect(seen).toHaveLength(3);
     expect(seen.some((c) => c.id === shared.id)).toBe(false);
@@ -126,8 +139,18 @@ describe('POST /share/:token/suggest-claims', () => {
         taxClass: 'B',
       }),
     );
+    const fam = await j<Obj & { accessCode: string }>(
+      await realApp.request(
+        req(`/bills/${bill.id}/families`, { name: '我家' }),
+      ),
+    );
     await realApp.request(
-      req(`/share/${bill.shareToken}/suggest-claims`, PHOTO, 'POST', false),
+      req(
+        `/share/${bill.shareToken}/suggest-claims`,
+        { ...PHOTO, code: fam.accessCode },
+        'POST',
+        false,
+      ),
     );
     const beef = seen.find((c) => c.name === 'RINDER FILET');
     const eggs = seen.find((c) => c.name === '10er Eier');
@@ -137,20 +160,38 @@ describe('POST /share/:token/suggest-claims', () => {
     expect(eggs?.priceLabel).toBe('2.79 €/件');
   });
 
-  it('免登录可用;锁定后 423;错误 token 404;缺图 400', async () => {
-    const { app, bill } = await setup();
-    // 无 Authorization 也能用(Participant 路由)
+  it('免登录可用;口令错 403;错误 token 404;缺图 400', async () => {
+    const { app, bill, code } = await setup();
+    // 无 Authorization 也能用(Participant 路由),但需带口令
     expect(
       (
         await app.request(
-          req(`/share/${bill.shareToken}/suggest-claims`, PHOTO, 'POST', false),
+          req(
+            `/share/${bill.shareToken}/suggest-claims`,
+            { ...PHOTO, code },
+            'POST',
+            false,
+          ),
         )
       ).status,
     ).toBe(200);
+    // 口令不对 → 403(不泄露商品列表)
     expect(
       (
         await app.request(
-          req(`/share/wrong/suggest-claims`, PHOTO, 'POST', false),
+          req(
+            `/share/${bill.shareToken}/suggest-claims`,
+            { ...PHOTO, code: '00000' },
+            'POST',
+            false,
+          ),
+        )
+      ).status,
+    ).toBe(403);
+    expect(
+      (
+        await app.request(
+          req(`/share/wrong/suggest-claims`, { ...PHOTO, code }, 'POST', false),
         )
       ).status,
     ).toBe(404);
@@ -164,7 +205,7 @@ describe('POST /share/:token/suggest-claims', () => {
   });
 
   it('建议器抛错 → 502(不影响手动认领)', async () => {
-    const { app, bill } = await setup({
+    const { app, bill, code } = await setup({
       suggestItems: async () => {
         throw new Error('上游挂了');
       },
@@ -172,7 +213,12 @@ describe('POST /share/:token/suggest-claims', () => {
     expect(
       (
         await app.request(
-          req(`/share/${bill.shareToken}/suggest-claims`, PHOTO, 'POST', false),
+          req(
+            `/share/${bill.shareToken}/suggest-claims`,
+            { ...PHOTO, code },
+            'POST',
+            false,
+          ),
         )
       ).status,
     ).toBe(502);

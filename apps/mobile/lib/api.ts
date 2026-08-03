@@ -163,10 +163,15 @@ export const api = {
   },
 
   /** 拍照认领:AI 建议照片里出现的商品(仅建议,需用户确认) */
-  suggestClaims: (token: string, fileBase64: string, mimeType: string) =>
+  suggestClaims: (
+    token: string,
+    code: string,
+    fileBase64: string,
+    mimeType: string,
+  ) =>
     req<{ suggestedItemIds: string[] }>(
       `/share/${token}/suggest-claims`,
-      json({ fileBase64, mimeType }),
+      json({ code, fileBase64, mimeType }),
     ),
 
   // ---- M5 锁定与结算 ----

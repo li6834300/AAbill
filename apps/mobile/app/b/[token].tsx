@@ -268,6 +268,7 @@ export default function ClaimScreen() {
     try {
       const { suggestedItemIds } = await api.suggestClaims(
         token!,
+        code!,
         picked.base64,
         picked.mimeType,
       );
