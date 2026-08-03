@@ -1,7 +1,7 @@
 import type { Bill } from '@aabill/api-types';
 import { toMilli } from '@aabill/core';
 import * as Clipboard from 'expo-clipboard';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   Linking,
@@ -18,6 +18,7 @@ import {
   buildSummaryText,
   SettlementTable,
 } from '../../components/SettlementTable';
+import { SignInRequiredNotice } from '../../components/SignInRequiredNotice';
 import { TaxCountryPicker } from '../../components/TaxCountryPicker';
 import { TranslationLangNotice } from '../../components/TranslationLangNotice';
 import { ValidationBanner } from '../../components/ValidationBanner';
@@ -27,6 +28,7 @@ import {
   type SettlementResponse,
   type ValidateResponse,
 } from '../../lib/api';
+import { getToken } from '../../lib/auth';
 import { centsToEuro } from '../../lib/format';
 import { useLang } from '../../lib/use-lang';
 import { pickInvoice } from '../../lib/pick-invoice';
@@ -43,6 +45,7 @@ const euroToCents = (text: string): number | null => {
 /** PRD M3:Owner 端闭环 —— 识别、校对编辑、家庭、均摊、校验提示。 */
 export default function BillScreen() {
   const { t, lang } = useLang();
+  const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [bill, setBill] = useState<Bill | null>(null);
   const [validation, setValidation] = useState<ValidateResponse | null>(null);
@@ -59,6 +62,9 @@ export default function BillScreen() {
 
   const refresh = useCallback(async () => {
     if (!id) return;
+    // 未登录不发 owner 请求 —— 否则会撞 401。这多半是有人把管理页链接
+    // 当成认领链接打开了(见下方 SignInRequiredNotice)。
+    if (!getToken()) return;
     try {
       const b = await api.getBill(id);
       setBill(b);
@@ -147,6 +153,11 @@ export default function BillScreen() {
         isShared: false,
       }),
     );
+
+  // 未登录打开管理页(常见:把 /bill/id 当分享链接发出去)→ 引导,而非突兀 401
+  if (!getToken()) {
+    return <SignInRequiredNotice onSignIn={() => router.replace('/')} />;
+  }
 
   if (!bill) {
     return (
@@ -281,6 +292,7 @@ export default function BillScreen() {
       />
 
       <Text style={styles.section}>{t('bill.share')}</Text>
+      <Text style={styles.shareHint}>{t('bill.shareHint')}</Text>
       <Text style={styles.sub} selectable>
         {shareUrl(bill.shareToken)}
       </Text>
@@ -349,6 +361,7 @@ const styles = StyleSheet.create({
   btn: { padding: 10, alignItems: 'center' },
   btnText: { color: '#0a7', fontWeight: '600' },
   sub: { color: '#666', fontSize: 12 },
+  shareHint: { color: '#8a6d00', fontSize: 12, marginBottom: 4 },
   link: { color: '#0a7', fontWeight: '600', paddingVertical: 4 },
   error: { color: '#b42318' },
   hint: { color: '#999', fontSize: 12, marginTop: 8 },

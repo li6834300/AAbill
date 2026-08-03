@@ -59,6 +59,7 @@ const zh = {
     '⚠️ 还没添加家庭 —— 朋友打开分享链接将无法认领,请先把参与的家庭加上。',
   'bill.share': '分享认领',
   'bill.copyLink': '复制分享链接',
+  'bill.shareHint': '把这条「认领链接」发给朋友(不要发浏览器地址栏里的网址)。',
   'bill.claimProgress': '认领进度:{done}/{total}',
   'bill.lockedSuffix': ' · 已锁定',
   'bill.summary': 'AA 汇总',
@@ -212,6 +213,8 @@ const en: Catalog = {
     '⚠️ No households yet — friends opening the share link cannot claim anything. Add them first.',
   'bill.share': 'Share for claiming',
   'bill.copyLink': 'Copy share link',
+  'bill.shareHint':
+    'Send friends this claim link — not the URL in your browser address bar.',
   'bill.claimProgress': 'Claimed: {done}/{total}',
   'bill.lockedSuffix': ' · locked',
   'bill.summary': 'Split summary',
@@ -371,6 +374,8 @@ const nl: Catalog = {
     '⚠️ Nog geen huishoudens — wie de deellink opent kan niets claimen. Voeg ze eerst toe.',
   'bill.share': 'Delen om te claimen',
   'bill.copyLink': 'Deellink kopiëren',
+  'bill.shareHint':
+    'Stuur vrienden deze claimlink — niet de URL in je adresbalk.',
   'bill.claimProgress': 'Geclaimd: {done}/{total}',
   'bill.lockedSuffix': ' · vergrendeld',
   'bill.summary': 'Verdeeloverzicht',
@@ -537,6 +542,8 @@ const de: Catalog = {
     '⚠️ Noch keine Haushalte — wer den Teilen-Link öffnet, kann nichts beanspruchen. Bitte zuerst hinzufügen.',
   'bill.share': 'Zum Beanspruchen teilen',
   'bill.copyLink': 'Teilen-Link kopieren',
+  'bill.shareHint':
+    'Sende Freunden diesen Anspruchslink — nicht die URL aus der Adressleiste.',
   'bill.claimProgress': 'Beansprucht: {done}/{total}',
   'bill.lockedSuffix': ' · gesperrt',
   'bill.summary': 'Aufteilungsübersicht',

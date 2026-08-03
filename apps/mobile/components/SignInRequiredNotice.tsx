@@ -25,7 +25,7 @@ export function SignInRequiredNotice({ onSignIn }: { onSignIn: () => void }) {
 }
 
 const styles = StyleSheet.create({
-  box: { padding: 20, gap: 10 },
+  box: { flex: 1, backgroundColor: '#fff', padding: 20, gap: 10 },
   title: { fontSize: 18, fontWeight: '600' },
   hint: { color: '#555', fontSize: 14, lineHeight: 20 },
   btn: {
