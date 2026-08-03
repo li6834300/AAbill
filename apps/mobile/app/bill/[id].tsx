@@ -289,6 +289,7 @@ export default function BillScreen() {
         onRemove={(fid) =>
           run(t('bill.removingFamily'), () => api.removeFamily(id!, fid))
         }
+        onCopyCode={(code) => void Clipboard.setStringAsync(code)}
       />
 
       <Text style={styles.section}>{t('bill.share')}</Text>

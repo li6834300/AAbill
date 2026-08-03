@@ -1,13 +1,17 @@
 import { describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import React from 'react';
+import { setLang } from '../../lib/i18n';
 import { FamilyChips } from '../FamilyChips';
 
 // PRD B2:家庭用真实名字(Rio家、老唐家……),可增删。
+// Beta:每家带一个 5 位口令,owner 在此看到并复制分发给对应的人。
+
+setLang('zh');
 
 const families = [
-  { id: 'f1', name: 'Rio家', sortOrder: 0 },
-  { id: 'f2', name: '老唐家', sortOrder: 1 },
+  { id: 'f1', name: 'Rio家', sortOrder: 0, accessCode: '48213' },
+  { id: 'f2', name: '老唐家', sortOrder: 1, accessCode: '90017' },
 ];
 
 describe('FamilyChips', () => {
@@ -51,5 +55,31 @@ describe('FamilyChips', () => {
     );
     fireEvent.press(screen.getByTestId('remove-family-f1'));
     expect(onRemove).toHaveBeenCalledWith('f1');
+  });
+
+  it('显示每家的 5 位口令,供 owner 分发', () => {
+    render(
+      <FamilyChips
+        families={families}
+        onAdd={jest.fn()}
+        onRemove={jest.fn()}
+      />,
+    );
+    expect(screen.getByText('48213')).toBeTruthy();
+    expect(screen.getByText('90017')).toBeTruthy();
+  });
+
+  it('点复制 → onCopyCode(该家口令)', () => {
+    const onCopyCode = jest.fn();
+    render(
+      <FamilyChips
+        families={families}
+        onAdd={jest.fn()}
+        onRemove={jest.fn()}
+        onCopyCode={onCopyCode}
+      />,
+    );
+    fireEvent.press(screen.getByTestId('copy-code-f1'));
+    expect(onCopyCode).toHaveBeenCalledWith('48213');
   });
 });

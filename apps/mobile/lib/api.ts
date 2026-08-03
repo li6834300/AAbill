@@ -1,9 +1,11 @@
 import type {
   AuthUser,
   Bill,
+  FamilyClaimView,
   ItemInput,
   Lang,
   PrintedTotals,
+  ShareSummary,
   TaxCountry,
 } from '@aabill/api-types';
 import { authHeader, setToken } from './auth';
@@ -132,21 +134,25 @@ export const api = {
     req(`/bills/${id}/families`, json({ name })),
   removeFamily: (id: string, familyId: string) =>
     req(`/bills/${id}/families/${familyId}`, { method: 'DELETE' }),
-  // ---- Participant(免登录,凭 share_token)----
-  getShare: (token: string) => req<Bill>(`/share/${token}`),
+  // ---- Participant(免登录,凭 share_token + 每家 5 位口令)----
+  /** 输入口令前的最小首屏:只拿标题/状态/有无家庭 */
+  getShareSummary: (token: string) => req<ShareSummary>(`/share/${token}`),
+  /** 凭口令进入自己那家;口令错抛错(403),由页面提示 */
+  enterFamily: (token: string, code: string) =>
+    req<FamilyClaimView>(`/share/${token}/enter`, json({ code })),
   /**
-   * 批量提交某家庭的认领(整体替换)。
+   * 批量提交本家认领(整体替换),凭口令定位家庭。
    * 超量时服务端返回 409 + 逐项冲突,这里转成结构化结果而不是抛错,便于页面高亮。
    */
   claimBatch: async (
     token: string,
-    familyId: string,
+    code: string,
     claims: Array<{ itemId: string; portion: number }>,
   ): Promise<{ ok: true } | { ok: false; conflicts: ClaimConflict[] }> => {
     const res = await fetch(`${BASE}/share/${token}/claims/batch`, {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ familyId, claims }),
+      body: JSON.stringify({ code, claims }),
     });
     if (res.ok) return { ok: true };
     if (res.status === 409) {
