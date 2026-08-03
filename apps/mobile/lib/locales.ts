@@ -59,6 +59,7 @@ const zh = {
     '⚠️ 还没添加家庭 —— 朋友打开分享链接将无法认领,请先把参与的家庭加上。',
   'bill.share': '分享认领',
   'bill.copyLink': '复制分享链接',
+  'bill.shareHint': '把这条「认领链接」发给朋友(不要发浏览器地址栏里的网址)。',
   'bill.claimProgress': '认领进度:{done}/{total}',
   'bill.lockedSuffix': ' · 已锁定',
   'bill.summary': 'AA 汇总',
@@ -156,6 +157,11 @@ const zh = {
   'translation.mismatch': '本账单的商品译名是{lang},与当前界面语言不同。',
   'translation.rescan': '重新识别发票以翻译成{lang}(会覆盖 AI 条目)',
 
+  'signin.title': '需要登录',
+  'signin.ownerHint': '这是账单管理页,登录后才能查看和编辑。',
+  'signin.claimerHint':
+    '如果你是受邀来认领账单的,请向发起人索取「认领链接」(网址里带 /b/),这个管理链接不能用来认领。',
+  'signin.action': '去登录',
   'lang.label': '语言',
 } as const;
 
@@ -207,6 +213,8 @@ const en: Catalog = {
     '⚠️ No households yet — friends opening the share link cannot claim anything. Add them first.',
   'bill.share': 'Share for claiming',
   'bill.copyLink': 'Copy share link',
+  'bill.shareHint':
+    'Send friends this claim link — not the URL in your browser address bar.',
   'bill.claimProgress': 'Claimed: {done}/{total}',
   'bill.lockedSuffix': ' · locked',
   'bill.summary': 'Split summary',
@@ -312,6 +320,12 @@ const en: Catalog = {
   'translation.rescan':
     'Re-scan the receipt to translate into {lang} (replaces AI rows)',
 
+  'signin.title': 'Sign-in required',
+  'signin.ownerHint':
+    'This is the bill management page — sign in to view and edit it.',
+  'signin.claimerHint':
+    'If you were invited to claim items, ask the organiser for the claim link (its URL contains /b/). This management link cannot be used to claim.',
+  'signin.action': 'Sign in',
   'lang.label': 'Language',
 };
 
@@ -360,6 +374,8 @@ const nl: Catalog = {
     '⚠️ Nog geen huishoudens — wie de deellink opent kan niets claimen. Voeg ze eerst toe.',
   'bill.share': 'Delen om te claimen',
   'bill.copyLink': 'Deellink kopiëren',
+  'bill.shareHint':
+    'Stuur vrienden deze claimlink — niet de URL in je adresbalk.',
   'bill.claimProgress': 'Geclaimd: {done}/{total}',
   'bill.lockedSuffix': ' · vergrendeld',
   'bill.summary': 'Verdeeloverzicht',
@@ -470,6 +486,12 @@ const nl: Catalog = {
   'translation.rescan':
     'Bon opnieuw scannen om naar het {lang} te vertalen (vervangt AI-regels)',
 
+  'signin.title': 'Inloggen vereist',
+  'signin.ownerHint':
+    'Dit is de beheerpagina van de bon — log in om te bekijken en bewerken.',
+  'signin.claimerHint':
+    'Ben je uitgenodigd om te claimen? Vraag de organisator om de claimlink (met /b/ in de URL). Deze beheerlink kun je niet gebruiken om te claimen.',
+  'signin.action': 'Inloggen',
   'lang.label': 'Taal',
 };
 
@@ -520,6 +542,8 @@ const de: Catalog = {
     '⚠️ Noch keine Haushalte — wer den Teilen-Link öffnet, kann nichts beanspruchen. Bitte zuerst hinzufügen.',
   'bill.share': 'Zum Beanspruchen teilen',
   'bill.copyLink': 'Teilen-Link kopieren',
+  'bill.shareHint':
+    'Sende Freunden diesen Anspruchslink — nicht die URL aus der Adressleiste.',
   'bill.claimProgress': 'Beansprucht: {done}/{total}',
   'bill.lockedSuffix': ' · gesperrt',
   'bill.summary': 'Aufteilungsübersicht',
@@ -630,6 +654,12 @@ const de: Catalog = {
   'translation.rescan':
     'Rechnung neu erkennen und auf {lang} übersetzen (ersetzt KI-Zeilen)',
 
+  'signin.title': 'Anmeldung erforderlich',
+  'signin.ownerHint':
+    'Dies ist die Verwaltungsseite der Rechnung — zum Ansehen und Bearbeiten bitte anmelden.',
+  'signin.claimerHint':
+    'Wenn du zum Beanspruchen eingeladen wurdest, bitte den Organisator um den Anspruchslink (mit /b/ in der URL). Dieser Verwaltungslink funktioniert dafür nicht.',
+  'signin.action': 'Anmelden',
   'lang.label': 'Sprache',
 };
 

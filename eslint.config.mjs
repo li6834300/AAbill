@@ -10,6 +10,8 @@ export default tseslint.config(
       '**/.expo/',
       '**/.vercel/',
       '**/coverage/',
+      // git worktrees(如 UI 设计系统分支)自带一份仓库副本,不该被本分支 lint
+      '.claude/worktrees/',
       'packages/core/fixtures/',
     ],
   },
