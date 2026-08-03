@@ -53,19 +53,21 @@ async function setupBill() {
     taxClass: 'B',
   });
   const addFam = async (name: string) =>
-    json<Obj>(await app.request(req(`/bills/${bill.id}/families`, { name })));
+    json<Obj & { accessCode: string }>(
+      await app.request(req(`/bills/${bill.id}/families`, { name })),
+    );
   const jia = await addFam('甲');
   const yi = await addFam('乙');
   const bing = await addFam('丙');
-  const claim = (itemId: string, familyId: string, portion: number) =>
+  // 凭口令整体提交一家的认领
+  const batch = (
+    code: string,
+    claims: Array<{ itemId: string; portion: number }>,
+  ) =>
     app.request(
-      req(
-        `/share/${bill.shareToken}/claims`,
-        { itemId, familyId, portion },
-        'PUT',
-      ),
+      req(`/share/${bill.shareToken}/claims/batch`, { code, claims }, 'PUT'),
     );
-  return { app, bill, eggs, folie, cheese, jia, yi, bing, claim };
+  return { app, bill, eggs, folie, cheese, jia, yi, bing, batch };
 }
 
 describe('GET /bills/:id/settlement', () => {
@@ -91,10 +93,12 @@ describe('GET /bills/:id/settlement', () => {
   });
 
   it('全认领后:每家净额/税额/含税与 core 手算基准一致,Σgross 守恒', async () => {
-    const { app, bill, folie, cheese, jia, yi, claim } = await setupBill();
-    await claim(folie.id, jia.id, 1);
-    await claim(cheese.id, jia.id, 1);
-    await claim(cheese.id, yi.id, 2);
+    const { app, bill, folie, cheese, jia, yi, batch } = await setupBill();
+    await batch(jia.accessCode, [
+      { itemId: folie.id, portion: 1 },
+      { itemId: cheese.id, portion: 1 },
+    ]);
+    await batch(yi.accessCode, [{ itemId: cheese.id, portion: 2 }]);
 
     const res = await app.request(getReq(`/bills/${bill.id}/settlement`));
     expect(res.status).toBe(200);
@@ -119,25 +123,31 @@ describe('GET /bills/:id/settlement', () => {
 
 describe('POST /bills/:id/lock', () => {
   it('未认领完:409;全认领:锁定成功,status=locked', async () => {
-    const { app, bill, folie, cheese, jia, yi, claim } = await setupBill();
+    const { app, bill, folie, cheese, jia, yi, batch } = await setupBill();
     expect((await app.request(req(`/bills/${bill.id}/lock`))).status).toBe(409);
 
-    await claim(folie.id, jia.id, 1);
-    await claim(cheese.id, jia.id, 1);
-    await claim(cheese.id, yi.id, 2);
+    await batch(jia.accessCode, [
+      { itemId: folie.id, portion: 1 },
+      { itemId: cheese.id, portion: 1 },
+    ]);
+    await batch(yi.accessCode, [{ itemId: cheese.id, portion: 2 }]);
     const res = await app.request(req(`/bills/${bill.id}/lock`));
     expect(res.status).toBe(200);
     expect((await json<{ status: string }>(res)).status).toBe('locked');
   });
 
   it('锁定后:claims 423,owner 改条目/家庭/合计/重识别一律 423,settlement 仍可读', async () => {
-    const { app, bill, folie, cheese, jia, yi, claim } = await setupBill();
-    await claim(folie.id, jia.id, 1);
-    await claim(cheese.id, jia.id, 1);
-    await claim(cheese.id, yi.id, 2);
+    const { app, bill, folie, cheese, jia, yi, batch } = await setupBill();
+    await batch(jia.accessCode, [
+      { itemId: folie.id, portion: 1 },
+      { itemId: cheese.id, portion: 1 },
+    ]);
+    await batch(yi.accessCode, [{ itemId: cheese.id, portion: 2 }]);
     await app.request(req(`/bills/${bill.id}/lock`));
 
-    expect((await claim(folie.id, yi.id, 1)).status).toBe(423);
+    expect(
+      (await batch(yi.accessCode, [{ itemId: folie.id, portion: 1 }])).status,
+    ).toBe(423);
     expect(
       (
         await app.request(
@@ -193,10 +203,12 @@ describe('POST /bills/:id/lock', () => {
   });
 
   it('重复锁定:幂等返回 200', async () => {
-    const { app, bill, folie, cheese, jia, yi, claim } = await setupBill();
-    await claim(folie.id, jia.id, 1);
-    await claim(cheese.id, jia.id, 1);
-    await claim(cheese.id, yi.id, 2);
+    const { app, bill, folie, cheese, jia, yi, batch } = await setupBill();
+    await batch(jia.accessCode, [
+      { itemId: folie.id, portion: 1 },
+      { itemId: cheese.id, portion: 1 },
+    ]);
+    await batch(yi.accessCode, [{ itemId: cheese.id, portion: 2 }]);
     await app.request(req(`/bills/${bill.id}/lock`));
     expect((await app.request(req(`/bills/${bill.id}/lock`))).status).toBe(200);
   });

@@ -67,10 +67,15 @@ export const ItemSchema = ItemInputSchema.extend({
   source: z.enum(['ai', 'manual']),
 });
 
+/** 每家的认领口令:5 位纯数字,账单内唯一。owner 生成并分发,participant 凭它进入自己那家。 */
+export const AccessCodeSchema = z.string().regex(/^\d{5}$/);
+
 export const FamilySchema = z.object({
   id: z.string(),
   name: z.string().min(1),
   sortOrder: z.number().int(),
+  /** 认领口令。只在 owner 能拿到的响应里出现(GET /bills/:id),绝不下发给 participant */
+  accessCode: AccessCodeSchema,
 });
 
 export const PrintedTotalsSchema = z.object({
@@ -105,15 +110,51 @@ export function claimableUnits(qtyMilli: number): number {
   return qtyMilli > 0 && qtyMilli % 1000 === 0 ? qtyMilli / 1000 : 1;
 }
 
-/** 批量提交某个家庭的认领:整体替换该家庭在本账单的认领 */
+/**
+ * 批量提交认领:整体替换该家在本账单的认领。
+ * 用 accessCode(而非 familyId)定位家庭 —— server 从 code 解析,杜绝冒充别家。
+ */
 export const ClaimBatchSchema = z.object({
-  familyId: z.string(),
+  code: AccessCodeSchema,
   claims: z.array(
     z.object({
       itemId: z.string(),
       portion: z.number().int().positive(),
     }),
   ),
+});
+
+/** 输入口令进入自己那家(participant 免登录) */
+export const EnterFamilySchema = z.object({ code: AccessCodeSchema });
+
+/**
+ * participant 输入口令后看到的 family-scoped 视图。
+ * 只含自己家的信息 + 每件剩余可领量,**不含别家 claims 明细、不含别家口令**。
+ */
+export const FamilyClaimItemSchema = ItemSchema.extend({
+  /** 可认领件数(整件 N;计重整块为 1) */
+  claimable: z.number().int().nonnegative(),
+  /** 剩余可领 = claimable − 别家已领(不透露是哪家领的) */
+  remaining: z.number().int(),
+  /** 自己家已领件数 */
+  myPortion: z.number().int().nonnegative(),
+});
+
+export const FamilyClaimViewSchema = z.object({
+  billTitle: z.string(),
+  status: BillStatusSchema,
+  translationLang: LangSchema.nullable(),
+  taxRates: TaxRatesSchema.nullable(),
+  /** 自己那家(不含 accessCode) */
+  family: z.object({ id: z.string(), name: z.string() }),
+  items: z.array(FamilyClaimItemSchema),
+});
+
+/** GET /share/:token 的最小首屏(输入口令前):不泄露条目/家庭明细 */
+export const ShareSummarySchema = z.object({
+  title: z.string(),
+  status: BillStatusSchema,
+  hasFamilies: z.boolean(),
 });
 
 export const AuthUserSchema = z.object({
@@ -196,6 +237,10 @@ export type Family = z.infer<typeof FamilySchema>;
 export type Claim = z.infer<typeof ClaimSchema>;
 export type ClaimUpsert = z.infer<typeof ClaimUpsertSchema>;
 export type ClaimBatch = z.infer<typeof ClaimBatchSchema>;
+export type EnterFamily = z.infer<typeof EnterFamilySchema>;
+export type FamilyClaimItem = z.infer<typeof FamilyClaimItemSchema>;
+export type FamilyClaimView = z.infer<typeof FamilyClaimViewSchema>;
+export type ShareSummary = z.infer<typeof ShareSummarySchema>;
 export type AuthUser = z.infer<typeof AuthUserSchema>;
 export type SessionRequest = z.infer<typeof SessionRequestSchema>;
 export type PrintedTotals = z.infer<typeof PrintedTotalsSchema>;

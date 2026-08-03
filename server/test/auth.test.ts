@@ -201,24 +201,23 @@ describe('Participant 路由不需要 JWT', () => {
         ),
       ),
     );
-    const fam = await j<Obj>(
+    const fam = await j<Obj & { accessCode: string }>(
       await app.request(
         post(`/bills/${bill.id}/families`, { name: 'Rio家' }, bearer(token)),
       ),
     );
 
-    // 无任何 Authorization:
+    // 无任何 Authorization:最小首屏可读、凭口令认领可写
     expect(
       (await app.request(`http://x/share/${bill.shareToken}`)).status,
     ).toBe(200);
     const claimRes = await app.request(
-      new Request(`http://x/share/${bill.shareToken}/claims`, {
+      new Request(`http://x/share/${bill.shareToken}/claims/batch`, {
         method: 'PUT',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
-          itemId: item.id,
-          familyId: fam.id,
-          portion: 1,
+          code: fam.accessCode,
+          claims: [{ itemId: item.id, portion: 1 }],
         }),
       }),
     );

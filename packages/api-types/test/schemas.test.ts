@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
+  AccessCodeSchema,
   BillCreateSchema,
+  ClaimBatchSchema,
+  FamilySchema,
   ItemInputSchema,
   ParsedReceiptSchema,
   PrintedTotalsSchema,
@@ -146,5 +149,42 @@ describe('ParsedReceiptSchema(AI 识别输出,十进制字符串)', () => {
     const bad2 = structuredClone(receipt);
     bad2.items[0]!.lineNet = '18.633';
     expect(ParsedReceiptSchema.safeParse(bad2).success).toBe(false);
+  });
+});
+
+describe('AccessCode 与 per-family 认领', () => {
+  it('口令必须是 5 位纯数字', () => {
+    expect(AccessCodeSchema.safeParse('01234').success).toBe(true);
+    expect(AccessCodeSchema.safeParse('1234').success).toBe(false); // 4 位
+    expect(AccessCodeSchema.safeParse('123456').success).toBe(false); // 6 位
+    expect(AccessCodeSchema.safeParse('12a45').success).toBe(false); // 含字母
+  });
+
+  it('family 带认领口令', () => {
+    const f = {
+      id: 'f1',
+      name: 'Rio家',
+      sortOrder: 0,
+      accessCode: '48213',
+    };
+    expect(FamilySchema.parse(f)).toEqual(f);
+    const noCode: Record<string, unknown> = { ...f };
+    delete noCode.accessCode;
+    expect(FamilySchema.safeParse(noCode).success).toBe(false);
+  });
+
+  it('批量认领用口令定位家庭(不再传 familyId)', () => {
+    const ok = ClaimBatchSchema.safeParse({
+      code: '48213',
+      claims: [{ itemId: 'i1', portion: 2 }],
+    });
+    expect(ok.success).toBe(true);
+    // 老形状(familyId)不再被接受
+    expect(
+      ClaimBatchSchema.safeParse({
+        familyId: 'f1',
+        claims: [{ itemId: 'i1', portion: 2 }],
+      }).success,
+    ).toBe(false);
   });
 });

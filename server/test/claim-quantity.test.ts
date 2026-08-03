@@ -44,22 +44,33 @@ async function setup() {
     unitPriceMilli: 12290,
     taxClass: 'B',
   });
-  const me = await j<Obj>(
+  type Family = Obj & { accessCode: string };
+  const me = await j<Family>(
     await app.request(req(`/bills/${bill.id}/families`, { name: '我家' })),
   );
-  const friend = await j<Obj>(
+  const friend = await j<Family>(
     await app.request(req(`/bills/${bill.id}/families`, { name: '朋友家' })),
   );
-  const batch = (familyId: string, claims: unknown) =>
+  // 认领凭口令(不再传 familyId)
+  const batch = (code: string, claims: unknown) =>
     app.request(
       req(
         `/share/${bill.shareToken}/claims/batch`,
-        { familyId, claims },
+        { code, claims },
         'PUT',
         false,
       ),
     );
-  return { app, bill, eggs, beef, me, friend, batch };
+  // 读 claims 走 owner 端点(participant 的 /share 已不返回全账单明细)
+  const ownerClaims = async () =>
+    (
+      await j<{ claims: Array<{ itemId: string; portion: number }> }>(
+        await app.request(
+          new Request(`http://x/bills/${bill.id}`, { headers: bearer }),
+        ),
+      )
+    ).claims;
+  return { app, bill, eggs, beef, me, friend, batch, ownerClaims };
 }
 
 describe('claimableUnits(件数规则)', () => {
@@ -74,30 +85,25 @@ describe('claimableUnits(件数规则)', () => {
 
 describe('PUT /share/:token/claims/batch', () => {
   it('一次提交多件,整体替换本家庭的认领', async () => {
-    const { bill, eggs, beef, me, batch, app } = await setup();
-    const res = await batch(me.id, [
+    const { eggs, beef, me, batch, ownerClaims } = await setup();
+    const res = await batch(me.accessCode, [
       { itemId: eggs.id, portion: 8 },
       { itemId: beef.id, portion: 1 },
     ]);
     expect(res.status).toBe(200);
 
-    const view = await j<{
-      claims: Array<{ itemId: string; portion: number }>;
-    }>(await app.request(`http://x/share/${bill.shareToken}`));
-    expect(view.claims).toHaveLength(2);
-    expect(view.claims.find((c) => c.itemId === eggs.id)?.portion).toBe(8);
+    const claims = await ownerClaims();
+    expect(claims).toHaveLength(2);
+    expect(claims.find((c) => c.itemId === eggs.id)?.portion).toBe(8);
 
     // 再次提交只留 1 件 → 覆盖式替换(牛肉那条被撤掉)
-    await batch(me.id, [{ itemId: eggs.id, portion: 2 }]);
-    const after = await j<{ claims: Array<{ itemId: string }> }>(
-      await app.request(`http://x/share/${bill.shareToken}`),
-    );
-    expect(after.claims).toHaveLength(1);
+    await batch(me.accessCode, [{ itemId: eggs.id, portion: 2 }]);
+    expect(await ownerClaims()).toHaveLength(1);
   });
 
   it('超出商品件数 → 409,指明哪件、还剩多少', async () => {
     const { eggs, me, batch } = await setup();
-    const res = await batch(me.id, [{ itemId: eggs.id, portion: 11 }]);
+    const res = await batch(me.accessCode, [{ itemId: eggs.id, portion: 11 }]);
     expect(res.status).toBe(409);
     const out = await j<{
       conflicts: Array<{
@@ -119,9 +125,10 @@ describe('PUT /share/:token/claims/batch', () => {
   it('并发场景:朋友先领 3 盒,我再领 8 盒 → 409(只剩 7)', async () => {
     const { eggs, me, friend, batch } = await setup();
     expect(
-      (await batch(friend.id, [{ itemId: eggs.id, portion: 3 }])).status,
+      (await batch(friend.accessCode, [{ itemId: eggs.id, portion: 3 }]))
+        .status,
     ).toBe(200);
-    const res = await batch(me.id, [{ itemId: eggs.id, portion: 8 }]);
+    const res = await batch(me.accessCode, [{ itemId: eggs.id, portion: 8 }]);
     expect(res.status).toBe(409);
     const out = await j<{ conflicts: Array<Record<string, unknown>> }>(res);
     expect(out.conflicts[0]).toMatchObject({
@@ -131,44 +138,48 @@ describe('PUT /share/:token/claims/batch', () => {
     });
 
     // 改成 7 盒就能过
-    expect((await batch(me.id, [{ itemId: eggs.id, portion: 7 }])).status).toBe(
-      200,
-    );
+    expect(
+      (await batch(me.accessCode, [{ itemId: eggs.id, portion: 7 }])).status,
+    ).toBe(200);
   });
 
   it('计重商品只能认领 1 件', async () => {
     const { beef, me, batch } = await setup();
-    expect((await batch(me.id, [{ itemId: beef.id, portion: 2 }])).status).toBe(
-      409,
-    );
-    expect((await batch(me.id, [{ itemId: beef.id, portion: 1 }])).status).toBe(
-      200,
-    );
+    expect(
+      (await batch(me.accessCode, [{ itemId: beef.id, portion: 2 }])).status,
+    ).toBe(409);
+    expect(
+      (await batch(me.accessCode, [{ itemId: beef.id, portion: 1 }])).status,
+    ).toBe(200);
   });
 
   it('重新提交自己的认领不算冲突(不与自己旧记录相加)', async () => {
     const { eggs, me, batch } = await setup();
-    await batch(me.id, [{ itemId: eggs.id, portion: 10 }]);
+    await batch(me.accessCode, [{ itemId: eggs.id, portion: 10 }]);
     // 再提交一次同样 10 盒:自己的旧记录应被替换,而不是累加成 20
     expect(
-      (await batch(me.id, [{ itemId: eggs.id, portion: 10 }])).status,
+      (await batch(me.accessCode, [{ itemId: eggs.id, portion: 10 }])).status,
     ).toBe(200);
   });
 
-  it('未知家庭/商品/token → 404', async () => {
-    const { eggs, me, batch, app } = await setup();
-    expect(
-      (await batch('nope', [{ itemId: eggs.id, portion: 1 }])).status,
-    ).toBe(404);
-    expect((await batch(me.id, [{ itemId: 'nope', portion: 1 }])).status).toBe(
-      404,
+  it('口令错 → 403;商品不存在 → 404;token 错 → 404', async () => {
+    const { eggs, me, friend, batch, app } = await setup();
+    // 合法格式但不属于任何家的口令 → 403(不能冒充)
+    const bogus = ['00000', '11111', '22222'].find(
+      (c) => c !== me.accessCode && c !== friend.accessCode,
+    )!;
+    expect((await batch(bogus, [{ itemId: eggs.id, portion: 1 }])).status).toBe(
+      403,
     );
+    expect(
+      (await batch(me.accessCode, [{ itemId: 'nope', portion: 1 }])).status,
+    ).toBe(404);
     expect(
       (
         await app.request(
           req(
             `/share/wrong/claims/batch`,
-            { familyId: me.id, claims: [] },
+            { code: me.accessCode, claims: [] },
             'PUT',
             false,
           ),
@@ -179,23 +190,23 @@ describe('PUT /share/:token/claims/batch', () => {
 
   it('锁定后提交 → 423', async () => {
     const { bill, eggs, beef, me, batch, app } = await setup();
-    await batch(me.id, [
+    await batch(me.accessCode, [
       { itemId: eggs.id, portion: 10 },
       { itemId: beef.id, portion: 1 },
     ]);
     expect((await app.request(req(`/bills/${bill.id}/lock`, {}))).status).toBe(
       200,
     );
-    expect((await batch(me.id, [{ itemId: eggs.id, portion: 5 }])).status).toBe(
-      423,
-    );
+    expect(
+      (await batch(me.accessCode, [{ itemId: eggs.id, portion: 5 }])).status,
+    ).toBe(423);
   });
 });
 
 describe('锁定/结算要求「件数全部认领完」', () => {
   it('只认领 8/10 盒 → 仍算未认领完,不能锁定(提示还差多少)', async () => {
     const { bill, eggs, beef, me, batch, app } = await setup();
-    await batch(me.id, [
+    await batch(me.accessCode, [
       { itemId: eggs.id, portion: 8 },
       { itemId: beef.id, portion: 1 },
     ]);
@@ -206,7 +217,7 @@ describe('锁定/结算要求「件数全部认领完」', () => {
     expect(error).toMatch(/2/); // 还差 2 件
 
     // 补满 10 盒后可锁定
-    await batch(me.id, [
+    await batch(me.accessCode, [
       { itemId: eggs.id, portion: 10 },
       { itemId: beef.id, portion: 1 },
     ]);

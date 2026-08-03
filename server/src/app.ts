@@ -1,8 +1,9 @@
 import {
+  AccessCodeSchema,
   BillCreateSchema,
   ClaimBatchSchema,
-  ClaimUpsertSchema,
   claimableUnits,
+  EnterFamilySchema,
   ItemInputSchema,
   ItemPatchSchema,
   PrintedTotalsSchema,
@@ -11,6 +12,8 @@ import {
   TaxCountrySetSchema,
   type AuthUser,
   type Bill,
+  type Family,
+  type FamilyClaimView,
   type TaxCountry,
   type TaxRates,
   type Item,
@@ -97,6 +100,47 @@ const unclaimedNames = (bill: Bill): string[] =>
     }))
     .filter(({ missing }) => missing > 0)
     .map(({ i, missing }) => `${i.name}(还差 ${missing} 件)`);
+
+/** 生成账单内唯一的 5 位数字认领口令(冲突极少,撞了就重摇)。用 Web Crypto,跨运行时通用 */
+const genAccessCode = (bill: Bill): string => {
+  const used = new Set(bill.families.map((f) => f.accessCode));
+  for (;;) {
+    const buf = new Uint32Array(1);
+    crypto.getRandomValues(buf);
+    const code = String(buf[0]! % 100_000).padStart(5, '0');
+    if (!used.has(code)) return code;
+  }
+};
+
+/** 某商品被别家(排除 self)已领的件数之和 */
+const claimedByOthers = (bill: Bill, itemId: string, selfFamilyId: string) =>
+  bill.claims
+    .filter((cl) => cl.itemId === itemId && cl.familyId !== selfFamilyId)
+    .reduce((s, cl) => s + cl.portion, 0);
+
+/**
+ * family-scoped 视图:只含自己家 + 每件剩余可领/自己已领。
+ * 刻意不下发别家 claims 明细、不下发任何家的 accessCode。
+ */
+const familyView = (bill: Bill, family: Family): FamilyClaimView => ({
+  billTitle: bill.title,
+  status: bill.status,
+  translationLang: bill.translationLang,
+  taxRates: bill.taxRates,
+  family: { id: family.id, name: family.name },
+  items: bill.items.map((i) => {
+    const claimable = claimableUnits(i.qtyMilli);
+    const mine = bill.claims
+      .filter((cl) => cl.itemId === i.id && cl.familyId === family.id)
+      .reduce((s, cl) => s + cl.portion, 0);
+    return {
+      ...i,
+      claimable,
+      remaining: claimable - claimedByOthers(bill, i.id, family.id),
+      myPortion: mine,
+    };
+  }),
+});
 
 const LOCKED_MSG = '账单已锁定,不可再修改';
 // 税率按账单国家取(NL 21/9,DE 19/7),国家未知就无从算税 —— 挡在校验/结算之前
@@ -306,6 +350,7 @@ export function createApp({
       id: crypto.randomUUID(),
       name: parsed.name,
       sortOrder: bill.families.length,
+      accessCode: genAccessCode(bill),
     };
     bill.families.push(family);
     await repo.save(bill);
@@ -327,10 +372,29 @@ export function createApp({
 
   // ---- Participant(免登录,凭 share_token;只能读账单、写 claims)----
 
+  /** 输入口令前的最小首屏:只给标题/状态/有无家庭,不泄露条目、别家、口令 */
   app.get('/share/:token', async (c) => {
     const bill = await repo.getByToken(c.req.param('token'));
     if (!bill) return c.json({ error: 'share link 无效' }, 404);
-    return c.json(bill);
+    return c.json({
+      title: bill.title,
+      status: bill.status,
+      hasFamilies: bill.families.length > 0,
+    });
+  });
+
+  /** 凭口令进入自己那家:返回 family-scoped 视图(只见自己 + 每件剩余可领) */
+  app.post('/share/:token/enter', async (c) => {
+    const bill = await repo.getByToken(c.req.param('token'));
+    if (!bill) return c.json({ error: 'share link 无效' }, 404);
+    const parsed = EnterFamilySchema.safeParse(
+      await c.req.json().catch(() => null),
+    );
+    if (!parsed.success) return c.json({ error: parsed.error.issues }, 400);
+    const family = bill.families.find((f) => f.accessCode === parsed.data.code);
+    // 口令不对一律 403,不区分"账单存在但口令错" —— 不给暴力者任何信号
+    if (!family) return c.json({ error: '口令不正确' }, 403);
+    return c.json(familyView(bill, family));
   });
 
   // 拍照认领建议(PRD 二期 PRO):只返回建议,不直接写 claims —— 由用户确认后再认领
@@ -339,10 +403,13 @@ export function createApp({
     if (!bill) return c.json({ error: 'share link 无效' }, 404);
     if (bill.status === 'locked')
       return c.json({ error: '账单已锁定,认领不可再修改' }, 423);
-    const parsed = ParseBodySchema.safeParse(
-      await c.req.json().catch(() => null),
-    );
+    const parsed = ParseBodySchema.extend({
+      code: AccessCodeSchema,
+    }).safeParse(await c.req.json().catch(() => null));
     if (!parsed.success) return c.json({ error: parsed.error.issues }, 400);
+    // 拍照认领也需口令 —— 否则持分享链接者能拿到商品列表,破坏"只看自己"
+    if (!bill.families.some((f) => f.accessCode === parsed.data.code))
+      return c.json({ error: '口令不正确' }, 403);
 
     // 均摊商品由全部家庭平分,不参与认领,故不作候选。
     // 候选必须带重量/件数与单价:同名商品(如 8 块牛肉)只能靠重量区分。
@@ -390,9 +457,11 @@ export function createApp({
       await c.req.json().catch(() => null),
     );
     if (!parsed.success) return c.json({ error: parsed.error.issues }, 400);
-    const { familyId, claims } = parsed.data;
-    if (!bill.families.some((f) => f.id === familyId))
-      return c.json({ error: 'family not found' }, 404);
+    const { code, claims } = parsed.data;
+    // 家庭由口令解析(不再信客户端传的 familyId)—— 口令不对就无法冒充任何家
+    const family = bill.families.find((f) => f.accessCode === code);
+    if (!family) return c.json({ error: '口令不正确' }, 403);
+    const familyId = family.id;
 
     const conflicts: Array<{
       itemId: string;
@@ -407,17 +476,15 @@ export function createApp({
       if (item.isShared)
         return c.json({ error: '均摊商品由全部家庭平分,无需认领' }, 409);
       // 只和「别家」的认领相加:重新提交自己的认领是替换,不是累加
-      const claimedByOthers = bill.claims
-        .filter((cl) => cl.itemId === itemId && cl.familyId !== familyId)
-        .reduce((s, cl) => s + cl.portion, 0);
-      const available = claimableUnits(item.qtyMilli) - claimedByOthers;
+      const available =
+        claimableUnits(item.qtyMilli) - claimedByOthers(bill, itemId, familyId);
       if (portion > available) {
         conflicts.push({
           itemId,
           itemName: item.name,
           requested: portion,
           available,
-          claimedByOthers,
+          claimedByOthers: claimedByOthers(bill, itemId, familyId),
         });
       }
     }
@@ -443,49 +510,7 @@ export function createApp({
     return c.json({ claims: bill.claims });
   });
 
-  app.put('/share/:token/claims', async (c) => {
-    const bill = await repo.getByToken(c.req.param('token'));
-    if (!bill) return c.json({ error: 'share link 无效' }, 404);
-    if (bill.status === 'locked')
-      return c.json({ error: '账单已锁定,认领不可再修改' }, 423);
-    const parsed = ClaimUpsertSchema.safeParse(
-      await c.req.json().catch(() => null),
-    );
-    if (!parsed.success) return c.json({ error: parsed.error.issues }, 400);
-    const { itemId, familyId, portion } = parsed.data;
-    const item = bill.items.find((i) => i.id === itemId);
-    if (!item) return c.json({ error: 'item not found' }, 404);
-    if (!bill.families.some((f) => f.id === familyId))
-      return c.json({ error: 'family not found' }, 404);
-    if (item.isShared)
-      return c.json({ error: '均摊商品由全部家庭平分,无需认领' }, 409);
-    // 件数校验:与别家已领的相加不得超过商品件数
-    const others = bill.claims
-      .filter((cl) => cl.itemId === itemId && cl.familyId !== familyId)
-      .reduce((s, cl) => s + cl.portion, 0);
-    const available = claimableUnits(item.qtyMilli) - others;
-    if (portion > available) {
-      return c.json(
-        { error: `超出可认领件数,还剩 ${available} 件`, available },
-        409,
-      );
-    }
-
-    bill.claims = bill.claims.filter(
-      (cl) => !(cl.itemId === itemId && cl.familyId === familyId),
-    );
-    if (portion > 0) {
-      bill.claims.push({
-        id: crypto.randomUUID(),
-        itemId,
-        familyId,
-        portion,
-        updatedAt: new Date().toISOString(),
-      });
-    }
-    await repo.save(bill);
-    return c.json({ claims: bill.claims });
-  });
+  // 单条认领端点已废弃:前端统一走 /claims/batch(整体替换,凭口令定位家庭)
 
   app.put('/bills/:id/tax-country', async (c) => {
     const bill = await loadBill(c, c.req.param('id'));
