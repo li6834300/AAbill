@@ -14,10 +14,12 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { BlockingWaitOverlay } from '../../components/BlockingWaitOverlay';
 import { ClaimItemRow } from '../../components/ClaimItemRow';
 import { ClaimSuggestionReview } from '../../components/ClaimSuggestionReview';
 import { LanguagePicker } from '../../components/LanguagePicker';
 import { api, type ClaimConflict } from '../../lib/api';
+import { hasClaimChanges } from '../../lib/claim-draft';
 import { centsToEuro } from '../../lib/format';
 import { useLang } from '../../lib/use-lang';
 import { pickInvoice } from '../../lib/pick-invoice';
@@ -54,6 +56,7 @@ export default function ClaimScreen() {
   const { t } = useLang();
   const { token } = useLocalSearchParams<{ token: string }>();
   const [summary, setSummary] = useState<ShareSummary | null>(null);
+  const [loadingSummary, setLoadingSummary] = useState(true);
   const [view, setView] = useState<FamilyClaimView | null>(null);
   const [code, setCode] = useState<string | null>(null);
   const [codeInput, setCodeInput] = useState('');
@@ -65,6 +68,7 @@ export default function ClaimScreen() {
   /** 提交被拒时的逐项原因 */
   const [conflicts, setConflicts] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [entering, setEntering] = useState(false);
   const [savedAt, setSavedAt] = useState<number | null>(null);
 
   /** 轮询刷新 scoped 视图(不碰本地草稿:用户正在改的不能被覆盖) */
@@ -91,9 +95,11 @@ export default function ClaimScreen() {
         if (!alive) return;
         setSummary(s);
         const saved = readCode(token);
-        if (saved) await enterWith(saved, false);
+        if (saved) await enterWith(saved, true, false);
       } catch (e) {
         if (alive) setError(String(e));
+      } finally {
+        if (alive) setLoadingSummary(false);
       }
     })();
     return () => {
@@ -109,8 +115,9 @@ export default function ClaimScreen() {
   }, [code, refreshView]);
 
   /** 输入口令进入自己那家;initDraft=true 时用服务端已有认领初始化本地草稿 */
-  const enterWith = async (c: string, initDraft = true) => {
+  const enterWith = async (c: string, initDraft = true, showWaiting = true) => {
     if (!token) return;
+    if (showWaiting) setEntering(true);
     try {
       const v = await api.enterFamily(token, c);
       setView(v);
@@ -126,6 +133,8 @@ export default function ClaimScreen() {
       }
     } catch {
       setError(t('claim.codeWrong'));
+    } finally {
+      if (showWaiting) setEntering(false);
     }
   };
 
@@ -184,13 +193,18 @@ export default function ClaimScreen() {
                 styles.submitBtn,
                 codeInput.length !== 5 && styles.disabled,
               ]}
-              disabled={codeInput.length !== 5}
+              disabled={codeInput.length !== 5 || entering}
               onPress={() => void enterWith(codeInput)}
             >
               <Text style={styles.submitText}>{t('claim.enterBtn')}</Text>
             </Pressable>
           </>
         )}
+        <BlockingWaitOverlay
+          visible={loadingSummary || entering}
+          title={t('common.waitTitle')}
+          message={entering ? t('claim.entering') : t('common.loading')}
+        />
       </ScrollView>
     );
   }
@@ -225,7 +239,7 @@ export default function ClaimScreen() {
         )
       : 0);
   const chosenUnits = chosen.reduce((s, i) => s + (draft[i.id] ?? 0), 0);
-  const dirty = Object.values(draft).some((n) => n > 0) || chosen.length > 0;
+  const dirty = hasClaimChanges(view.items, draft);
 
   const submit = async () => {
     if (!code) return;
@@ -363,11 +377,20 @@ export default function ClaimScreen() {
               : t('claim.noTaxYet')}
           </Text>
           <Pressable
-            style={[styles.submitBtn, submitting && styles.disabled]}
+            testID="submit-claims"
+            style={[
+              styles.submitBtn,
+              (submitting || !dirty) && styles.disabled,
+            ]}
             onPress={() => void submit()}
             disabled={submitting || !dirty}
           >
-            <Text style={styles.submitText}>
+            <Text
+              style={[
+                styles.submitText,
+                (submitting || !dirty) && styles.disabledText,
+              ]}
+            >
               {submitting ? t('claim.submitting') : t('claim.submit')}
             </Text>
           </Pressable>
@@ -378,6 +401,14 @@ export default function ClaimScreen() {
       )}
 
       <Text style={styles.hint}>{t('claim.autoSync')}</Text>
+      <BlockingWaitOverlay
+        visible={submitting || suggesting}
+        variant={suggesting ? 'ai' : 'waiting'}
+        title={
+          suggesting ? t('claim.photoProcessingTitle') : t('common.waitTitle')
+        }
+        message={suggesting ? t('claim.photoBusy') : t('claim.submitting')}
+      />
     </ScrollView>
   );
 }
@@ -434,7 +465,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 8,
   },
-  disabled: { opacity: 0.5 },
+  disabled: { backgroundColor: '#cbd5e1' },
+  disabledText: { color: '#64748b' },
   submitText: { color: '#fff', fontWeight: '700' },
   saved: { color: '#1a7f1a', fontWeight: '600', marginTop: 4 },
 });
