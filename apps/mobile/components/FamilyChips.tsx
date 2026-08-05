@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useLang } from '../lib/use-lang';
+import { space } from '../theme/tokens';
+import { Avatar, Button, Chip, Input } from './ui';
 
 export interface FamilyView {
   id: string;
@@ -8,7 +10,7 @@ export interface FamilyView {
   sortOrder: number;
 }
 
-/** PRD B2:参与分账的家庭,用真实名字。 */
+/** PRD B2:参与分账的家庭,用真实名字。每家一个稳定的身份色头像。 */
 export function FamilyChips({
   families,
   onAdd,
@@ -27,58 +29,38 @@ export function FamilyChips({
     setName('');
   };
   return (
-    <View>
-      <View style={styles.chips}>
-        {families.map((f) => (
-          <View key={f.id} style={styles.chip}>
-            <Text>{f.name}</Text>
-            <Pressable
-              testID={`remove-family-${f.id}`}
-              onPress={() => onRemove(f.id)}
-              style={styles.x}
-            >
-              <Text style={styles.xText}>×</Text>
-            </Pressable>
-          </View>
-        ))}
-      </View>
+    <View style={styles.wrap}>
+      {families.length > 0 && (
+        <View style={styles.chips}>
+          {families.map((f, i) => (
+            <Chip
+              key={f.id}
+              label={f.name}
+              leading={<Avatar name={f.name} index={i} size={22} />}
+              onRemove={() => onRemove(f.id)}
+              removeTestID={`remove-family-${f.id}`}
+            />
+          ))}
+        </View>
+      )}
       <View style={styles.addRow}>
-        <TextInput
+        <Input
           testID="family-input"
-          style={styles.input}
+          style={styles.flex}
           value={name}
           onChangeText={setName}
           placeholder={t('family.placeholder')}
+          onSubmitEditing={add}
         />
-        <Pressable onPress={add} style={styles.btn}>
-          <Text style={styles.btnText}>{t('common.add')}</Text>
-        </Pressable>
+        <Button label={t('common.add')} onPress={add} />
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginVertical: 8 },
-  chip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#eef2ff',
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    gap: 4,
-  },
-  x: { paddingHorizontal: 4 },
-  xText: { color: '#666' },
-  addRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
-  input: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 6,
-    padding: 8,
-  },
-  btn: { padding: 8 },
-  btnText: { color: '#0a7', fontWeight: '600' },
+  wrap: { gap: space.md },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
+  addRow: { flexDirection: 'row', gap: space.sm, alignItems: 'center' },
+  flex: { flex: 1 },
 });

@@ -114,11 +114,23 @@ describe('ClaimItemRow(件数版)', () => {
 });
 
 // 件数多时逐个点 + 太累:允许直接填数字,点确认一次到位(带校验)
-describe('ClaimItemRow 手动输入件数', () => {
+// 规格变更(视觉重设计,2026-08):件数多时仍要能"直接填数字",这条需求不变;
+// 变的只是入口——不再让每行常驻一个输入框(42 行的小票会非常吵),改为**点数字**
+// (testID: qty-{id})展开输入。因此每个用例先点开,再输入确认;并新增一条"点开前不显示"。
+describe('ClaimItemRow 手动输入件数(点数字展开)', () => {
+  const openTyping = () => fireEvent.press(screen.getByTestId('qty-i-eggs'));
   const typeAndConfirm = (value: string) => {
+    openTyping();
     fireEvent.changeText(screen.getByTestId('qty-input-i-eggs'), value);
     fireEvent.press(screen.getByTestId('qty-confirm-i-eggs'));
   };
+
+  it('点数字前不显示输入框,点开后才出现', () => {
+    render(<ClaimItemRow {...base} />);
+    expect(screen.queryByTestId('qty-input-i-eggs')).toBeNull();
+    openTyping();
+    expect(screen.getByTestId('qty-input-i-eggs')).toBeTruthy();
+  });
 
   it('输入合法件数 → 确认后回传', () => {
     const onChange = jest.fn();

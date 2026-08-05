@@ -1,6 +1,8 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { getLang, LANG_NAMES, LANGS, setLang, useLang } from '../lib/use-lang';
+import { Chip } from './ui';
+import { space } from '../theme/tokens';
 
 /**
  * 语言切换器:四个语言各用自己的写法(中文/English/Nederlands/Deutsch),
@@ -12,31 +14,18 @@ export function LanguagePicker() {
   return (
     <View style={styles.row} testID="language-picker">
       {LANGS.map((l) => (
-        <Pressable
+        <Chip
           key={l}
           testID={`lang-${l}`}
+          label={LANG_NAMES[l]}
+          active={l === current}
           onPress={() => setLang(l)}
-          style={[styles.chip, l === current && styles.active]}
-        >
-          <Text style={[styles.text, l === current && styles.activeText]}>
-            {LANG_NAMES[l]}
-          </Text>
-        </Pressable>
+        />
       ))}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
-  chip: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 14,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  active: { backgroundColor: '#0a7', borderColor: '#0a7' },
-  text: { fontSize: 12, color: '#666' },
-  activeText: { color: '#fff', fontWeight: '600' },
+  row: { flexDirection: 'row', gap: space.sm, flexWrap: 'wrap' },
 });

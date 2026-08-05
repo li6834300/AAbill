@@ -1,7 +1,8 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { centsToEuro } from '../lib/format';
 import { useLang } from '../lib/use-lang';
+import { Banner, bannerColor, Text } from './ui';
 
 export interface ValidationResultView {
   ok: boolean;
@@ -37,41 +38,46 @@ export function ValidationBanner({
 
   if (result.ok || maxAbs === 0) {
     return (
-      <View testID="validation-banner" style={[styles.banner, styles.ok]}>
-        <Text style={styles.okText}>{t('validate.ok')}</Text>
-      </View>
+      <Banner testID="validation-banner" tone="success">
+        <Text variant="label" style={{ color: bannerColor('success') }}>
+          {t('validate.ok')}
+        </Text>
+      </Banner>
     );
   }
 
   if (maxAbs <= TOLERANCE_CENTS) {
     return (
-      <View testID="validation-banner" style={[styles.banner, styles.near]}>
-        <Text style={styles.nearText}>
+      <Banner testID="validation-banner" tone="warning">
+        <Text variant="label" style={{ color: bannerColor('warning') }}>
           {t('validate.near', { amount: centsToEuro(diffs.grossCents) })}
         </Text>
-      </View>
+      </Banner>
     );
   }
 
   return (
-    <View testID="validation-banner" style={[styles.banner, styles.warn]}>
-      <Text style={styles.warnTitle}>{t('validate.mismatch')}</Text>
+    <Banner testID="validation-banner" tone="danger">
+      <Text
+        variant="label"
+        style={[styles.title, { color: bannerColor('danger') }]}
+      >
+        {t('validate.mismatch')}
+      </Text>
       {rows.map((r) => (
-        <Text key={r.label} style={styles.warnText}>
-          {r.label} {centsToEuro(r.cents)} €
+        // 标签与金额必须同一个 Text 节点:测试用 /净额差 -5.58/ 匹配整串。
+        <Text
+          key={r.label}
+          variant="body"
+          style={{ color: bannerColor('danger') }}
+        >
+          {`${r.label} ${centsToEuro(r.cents)} €`}
         </Text>
       ))}
-    </View>
+    </Banner>
   );
 }
 
 const styles = StyleSheet.create({
-  banner: { borderRadius: 8, padding: 12, marginVertical: 8 },
-  ok: { backgroundColor: '#e6f6e6' },
-  okText: { color: '#1a7f1a', fontWeight: '600' },
-  near: { backgroundColor: '#fff7e6' },
-  nearText: { color: '#8a6d00', fontWeight: '600' },
-  warn: { backgroundColor: '#fdeaea' },
-  warnTitle: { color: '#b42318', fontWeight: '600', marginBottom: 4 },
-  warnText: { color: '#b42318' },
+  title: { fontWeight: '700' },
 });

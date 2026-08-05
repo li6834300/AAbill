@@ -1,8 +1,10 @@
 import type { Lang } from '@aabill/api-types';
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet } from 'react-native';
 import { languageName } from '../lib/country-name';
 import { useLang } from '../lib/use-lang';
+import { space } from '../theme/tokens';
+import { Banner, bannerColor, Text } from './ui';
 
 /**
  * 账单的商品译名语言与当前界面语言不一致时的说明。
@@ -24,8 +26,8 @@ export function TranslationLangNotice({
   if (billLang === null || billLang === lang) return null;
 
   return (
-    <View testID="translation-lang-notice" style={styles.box}>
-      <Text style={styles.text}>
+    <Banner testID="translation-lang-notice" tone="info">
+      <Text variant="muted" tone="muted" style={styles.text}>
         {t('translation.mismatch', { lang: languageName(billLang) })}
       </Text>
       <Pressable
@@ -33,22 +35,18 @@ export function TranslationLangNotice({
         onPress={() => !busy && onRescan()}
         disabled={busy}
       >
-        <Text style={[styles.action, busy && styles.disabled]}>
+        <Text
+          variant="label"
+          style={[{ color: bannerColor('info') }, busy && styles.disabled]}
+        >
           {t('translation.rescan', { lang: languageName(lang) })}
         </Text>
       </Pressable>
-    </View>
+    </Banner>
   );
 }
 
 const styles = StyleSheet.create({
-  box: {
-    backgroundColor: '#eef4fb',
-    borderRadius: 8,
-    padding: 10,
-    marginBottom: 8,
-  },
-  text: { color: '#3b5570', fontSize: 12 },
-  action: { color: '#1f6feb', fontSize: 12, fontWeight: '600', marginTop: 6 },
+  text: { marginBottom: space.xs },
   disabled: { opacity: 0.5 },
 });
