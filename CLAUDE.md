@@ -23,6 +23,15 @@ refactor: <scope>: <整理描述>  # 重构:测试保持绿
 
 其他:`docs:` `chore:` `fix:`(fix 必须先有 test: 复现)。
 
+## 生产发布铁律(不可协商)
+
+1. **生产环境只能从 `main` 发布。**功能分支、PR 分支、Claude/Codex worktree 只能做预览,禁止直接占用生产域名或执行生产发布。
+2. 任何已经用于预览或验收的功能/视觉分支,必须先通过 PR 合并进 `main`;合并后的 `main` 才是代码与生产 UI 的唯一事实来源。
+3. 发布前必须先更新远端引用并运行 `npm run deploy:web:check`;检查必须确认:当前分支是 `main`、工作区干净、没有 merge/rebase/revert/cherry-pick 进行中、`HEAD` 与 `origin/main` 完全一致。
+4. 发布前必须在同一个 `main` 提交上完成测试、lint、typecheck 与生产构建;禁止拿其他分支生成的旧 `dist` 或 `.vercel/output` 发布。
+5. 同一时间只允许一个 Agent/人执行生产发布。发现其他自动修复、合并或发布任务仍在运行时,先等待或停止其中一个,不得并行操作生产别名。
+6. 线上回滚优先把生产别名恢复到已验证的历史部署;不要从未经确认的分支重新构建并称作“回滚”。
+
 ## 架构速记
 
 - `packages/core`:零依赖纯函数。金额一律用**整数分(cent)**运算,禁止浮点欧元。税类/税率按账单国家配置(NL 21%/9%,DE 19%/7%),不许硬编码。
@@ -45,4 +54,5 @@ refactor: <scope>: <整理描述>  # 重构:测试保持绿
 npm test                 # 全部测试
 npm run test:core        # 只跑 core
 npm run lint && npm run typecheck
+npm run deploy:web:check # 生产发布前分支/工作区/远端一致性检查
 ```

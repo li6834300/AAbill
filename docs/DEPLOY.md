@@ -3,6 +3,25 @@
 API 部署 Heroku,网页版部署 Vercel,数据库用 Neon(已就绪)。
 登录一次后,CLI 命令可由结对程序员代跑。
 
+## 发布门禁
+
+生产环境的唯一源码来源是 GitHub `main`。视觉或功能分支必须先通过 PR 合并进
+`main`,不得从本地功能分支、Claude/Codex worktree 或未提交目录直接发布生产。
+
+每次发布前在仓库根目录执行:
+
+```bash
+git fetch origin main
+npm run deploy:web:check
+npm test
+npm run lint
+npm run typecheck
+```
+
+`deploy:web:check` 只在当前分支为 `main`、工作区干净、没有未完成的 Git 操作、且
+`HEAD` 与 `origin/main` 完全一致时通过。之后必须从这个提交重新导出网页,不得复用
+其他分支生成的 `dist` 或 `.vercel/output`。
+
 ## ✅ 已上线(2026-07-08)
 
 | | 地址 | 状态 |
@@ -28,10 +47,17 @@ dev-login 生产关闭、Google/Apple 尚未接线,所以线上 Owner 还不能�
 # API
 git push heroku main
 # 网页(在 apps/mobile)
+cd ../..
+npm run deploy:web:check
+cd apps/mobile
 EXPO_PUBLIC_API_URL=https://aabill-api-3aba7ff414b5.herokuapp.com npx expo export --platform web
 # 把 dist 内容放进 .vercel/output/static,配 config.json,然后:
 npx vercel@latest deploy --prebuilt --prod --token "$VERSAL_TOKEN"
 ```
+
+如果需要线上回滚,优先把生产域名提升到已经验证过的历史 Vercel deployment;
+不要切到一个未经确认的 Git 分支重新构建。生产发布与回滚期间不得同时运行其他
+auto-fix、合并或发布 Agent。
 
 ## 前置(一次性,你来点)
 
