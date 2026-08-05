@@ -12,7 +12,6 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { BlockingWaitOverlay } from '../../components/BlockingWaitOverlay';
 import { FamilyChips } from '../../components/FamilyChips';
 import { ItemRow, type ItemPatch } from '../../components/ItemRow';
 import {
@@ -43,11 +42,6 @@ const euroToCents = (text: string): number | null => {
   }
 };
 
-interface BusyState {
-  message: string;
-  variant: 'waiting' | 'ai';
-}
-
 /** PRD M3:Owner 端闭环 —— 识别、校对编辑、家庭、均摊、校验提示。 */
 export default function BillScreen() {
   const { t, lang } = useLang();
@@ -57,7 +51,7 @@ export default function BillScreen() {
   const [validation, setValidation] = useState<ValidateResponse | null>(null);
   const [settlement, setSettlement] = useState<SettlementResponse | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
-  const [busy, setBusy] = useState<BusyState | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [totalsDraft, setTotalsDraft] = useState({
     net: '',
@@ -94,12 +88,8 @@ export default function BillScreen() {
     void refresh();
   }, [refresh]);
 
-  const run = async (
-    message: string,
-    fn: () => Promise<unknown>,
-    variant: BusyState['variant'] = 'waiting',
-  ) => {
-    setBusy({ message, variant });
+  const run = async (label: string, fn: () => Promise<unknown>) => {
+    setBusy(label);
     try {
       await fn();
       await refresh();
@@ -111,35 +101,29 @@ export default function BillScreen() {
   };
 
   const pickAndParse = () =>
-    run(
-      t('bill.parsing'),
-      async () => {
-        const picked = await pickInvoice();
-        if (!picked) return;
-        // 记录识别前的 AI 条目 id;每次识别都生成新 id,靠"出现新 id"判断结果已回填
-        // (重新识别时条目数可能不变,故不能用数量判断)
-        const beforeAiIds = new Set(
-          (bill?.items ?? []).filter((i) => i.source === 'ai').map((i) => i.id),
-        );
-        const hasNewAiItems = async () => {
-          const b = await api.getBill(id!);
-          return b.items.some(
-            (i) => i.source === 'ai' && !beforeAiIds.has(i.id),
-          );
-        };
-        try {
-          await api.parse(id!, picked.base64, picked.mimeType, lang);
-        } catch {
-          // Heroku 30s 网关超时:识别很可能仍在后台完成 → 轮询等结果,别直接报错
-          for (let i = 0; i < 15; i++) {
-            await new Promise((r) => setTimeout(r, 4000));
-            if (await hasNewAiItems()) return;
-          }
-          throw new Error(t('bill.parseTimeout'));
+    run(t('bill.parsing'), async () => {
+      const picked = await pickInvoice();
+      if (!picked) return;
+      // 记录识别前的 AI 条目 id;每次识别都生成新 id,靠"出现新 id"判断结果已回填
+      // (重新识别时条目数可能不变,故不能用数量判断)
+      const beforeAiIds = new Set(
+        (bill?.items ?? []).filter((i) => i.source === 'ai').map((i) => i.id),
+      );
+      const hasNewAiItems = async () => {
+        const b = await api.getBill(id!);
+        return b.items.some((i) => i.source === 'ai' && !beforeAiIds.has(i.id));
+      };
+      try {
+        await api.parse(id!, picked.base64, picked.mimeType, lang);
+      } catch {
+        // Heroku 30s 网关超时:识别很可能仍在后台完成 → 轮询等结果,别直接报错
+        for (let i = 0; i < 15; i++) {
+          await new Promise((r) => setTimeout(r, 4000));
+          if (await hasNewAiItems()) return;
         }
-      },
-      'ai',
-    );
+        throw new Error(t('bill.parseTimeout'));
+      }
+    });
 
   const saveTotals = () =>
     run(t('bill.savingTotals'), async () => {
@@ -179,11 +163,6 @@ export default function BillScreen() {
     return (
       <View style={styles.screen}>
         <Text style={styles.sub}>{error ?? t('common.loading')}</Text>
-        <BlockingWaitOverlay
-          visible={!error}
-          title={t('common.waitTitle')}
-          message={t('common.loading')}
-        />
       </View>
     );
   }
@@ -211,14 +190,20 @@ export default function BillScreen() {
       <TaxCountryPicker
         country={bill.taxCountry}
         rates={bill.taxRates}
-        onChange={(c, reducedRateBp) =>
-          void run(t('bill.savingTax'), async () => {
+        onChange={async (c, reducedRateBp) => {
+          setBusy(t('bill.savingTax'));
+          try {
             setBill(await api.setTaxCountry(bill.id, c, reducedRateBp));
-          })
-        }
+          } catch (e) {
+            setError(String(e));
+          } finally {
+            setBusy(null);
+          }
+        }}
         busy={!!busy}
       />
       {error && <Text style={styles.error}>{error}</Text>}
+      {busy && <Text style={styles.sub}>{busy}</Text>}
 
       <Pressable
         style={styles.primary}
@@ -269,13 +254,8 @@ export default function BillScreen() {
           </View>
         ))}
       </View>
-      <Pressable
-        testID="save-totals"
-        style={styles.recheckBtn}
-        onPress={saveTotals}
-        disabled={!!busy}
-      >
-        <Text style={styles.recheckText}>{t('bill.saveAndValidate')}</Text>
+      <Pressable style={styles.btn} onPress={saveTotals}>
+        <Text style={styles.btnText}>{t('bill.saveAndValidate')}</Text>
       </Pressable>
 
       <Text style={styles.section}>
@@ -354,16 +334,6 @@ export default function BillScreen() {
       {!settlement && claimable.length > 0 && (
         <Text style={styles.hint}>{t('bill.lockHint')}</Text>
       )}
-      <BlockingWaitOverlay
-        visible={!!busy}
-        variant={busy?.variant}
-        title={
-          busy?.variant === 'ai'
-            ? t('bill.processingTitle')
-            : t('common.waitTitle')
-        }
-        message={busy?.message ?? ''}
-      />
     </ScrollView>
   );
 }
@@ -391,16 +361,6 @@ const styles = StyleSheet.create({
   primaryText: { color: '#fff', fontWeight: '600' },
   btn: { padding: 10, alignItems: 'center' },
   btnText: { color: '#0a7', fontWeight: '600' },
-  recheckBtn: {
-    alignSelf: 'flex-end',
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 7,
-    backgroundColor: '#f8fafc',
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-  },
-  recheckText: { color: '#64748b', fontSize: 12, fontWeight: '600' },
   sub: { color: '#666', fontSize: 12 },
   shareHint: { color: '#8a6d00', fontSize: 12, marginBottom: 4 },
   link: { color: '#0a7', fontWeight: '600', paddingVertical: 4 },

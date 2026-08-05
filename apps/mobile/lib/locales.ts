@@ -22,7 +22,6 @@ const zh = {
   'common.add': '添加',
   'common.confirm': '确认',
   'common.loading': '加载中…',
-  'common.waitTitle': '请稍候',
   'common.copied': '已复制 ✓',
 
   'nav.billList': 'AAbill 账单',
@@ -51,7 +50,7 @@ const zh = {
   'bill.vatA': 'A 税额',
   'bill.vatB': 'B 税额',
   'bill.gross': '含税',
-  'bill.saveAndValidate': '更新并重新校验',
+  'bill.saveAndValidate': '保存合计并校验',
   'bill.items': '条目({n})',
   'bill.addRow': '＋ 手动加行',
   'bill.newItem': '新条目',
@@ -68,7 +67,6 @@ const zh = {
   'bill.lock': '锁定账单(认领与条目不可再改)',
   'bill.lockHint': '全部商品认领完成后,这里会出现 AA 汇总与锁定按钮。',
   'bill.parsing': '识别中(多页发票可能要 1 分钟)…',
-  'bill.processingTitle': 'AI 正在处理发票',
   'bill.parseTimeout': '识别超时,请稍后刷新看看,或重试',
   'bill.savingTotals': '保存合计…',
   'bill.badAmount': '合计金额格式不对(最多两位小数)',
@@ -103,7 +101,6 @@ const zh = {
     '发起人会把一个 5 位数字口令发给你;只有你能看到并认领自己那份。',
   'claim.codePlaceholder': '5 位数字',
   'claim.enterBtn': '进入',
-  'claim.entering': '正在进入认领页面…',
   'claim.codeWrong': '口令不正确,请向发起人确认。',
   'claim.youAre': '你是「{name}」',
   'claim.switchCode': '不是这家?换口令',
@@ -115,7 +112,6 @@ const zh = {
   'claim.pickFamilyFirst': '先选择你的家庭,再勾选自己买的商品。',
   'claim.photo': '📷 拍照认领(AI 帮你预选)',
   'claim.photoBusy': 'AI 识别中…',
-  'claim.photoProcessingTitle': 'AI 正在识别照片',
   'claim.photoHint':
     '对着你买的东西拍一张,AI 会猜哪些是你的 —— 结果需要你确认。',
   'claim.photoFailed': '拍照识别失败:{error}',
@@ -189,7 +185,6 @@ const en: Catalog = {
   'common.add': 'Add',
   'common.confirm': 'Confirm',
   'common.loading': 'Loading…',
-  'common.waitTitle': 'Please wait',
   'common.copied': 'Copied ✓',
 
   'nav.billList': 'AAbill',
@@ -218,7 +213,7 @@ const en: Catalog = {
   'bill.vatA': 'VAT A',
   'bill.vatB': 'VAT B',
   'bill.gross': 'Gross',
-  'bill.saveAndValidate': 'Update totals and recheck',
+  'bill.saveAndValidate': 'Save totals and check',
   'bill.items': 'Items ({n})',
   'bill.addRow': '＋ Add row manually',
   'bill.newItem': 'New item',
@@ -237,7 +232,6 @@ const en: Catalog = {
   'bill.lockHint':
     'Once every item is claimed, the summary and lock button appear here.',
   'bill.parsing': 'Scanning (a multi-page receipt may take a minute)…',
-  'bill.processingTitle': 'AI is processing your receipt',
   'bill.parseTimeout': 'Scan timed out — refresh in a moment, or try again',
   'bill.savingTotals': 'Saving totals…',
   'bill.badAmount': 'Invalid amount (at most two decimals)',
@@ -272,7 +266,6 @@ const en: Catalog = {
     'The organiser sends you a 5-digit code; only you can see and claim your share.',
   'claim.codePlaceholder': '5 digits',
   'claim.enterBtn': 'Enter',
-  'claim.entering': 'Opening your claim…',
   'claim.codeWrong':
     'That code is not correct — please check with the organiser.',
   'claim.youAre': 'You are “{name}”',
@@ -287,7 +280,6 @@ const en: Catalog = {
     'Pick your household first, then tick the items you bought.',
   'claim.photo': '📷 Claim by photo (AI pre-selects)',
   'claim.photoBusy': 'AI is looking…',
-  'claim.photoProcessingTitle': 'AI is checking your photo',
   'claim.photoHint':
     'Photograph what you bought and AI will guess which items are yours — you confirm the result.',
   'claim.photoFailed': 'Photo scan failed: {error}',
@@ -364,7 +356,6 @@ const nl: Catalog = {
   'common.add': 'Toevoegen',
   'common.confirm': 'Bevestigen',
   'common.loading': 'Laden…',
-  'common.waitTitle': 'Even geduld',
   'common.copied': 'Gekopieerd ✓',
 
   'nav.billList': 'AAbill',
@@ -393,7 +384,7 @@ const nl: Catalog = {
   'bill.vatA': 'Btw A',
   'bill.vatB': 'Btw B',
   'bill.gross': 'Bruto',
-  'bill.saveAndValidate': 'Totalen bijwerken en opnieuw controleren',
+  'bill.saveAndValidate': 'Totalen opslaan en controleren',
   'bill.items': 'Artikelen ({n})',
   'bill.addRow': '＋ Regel handmatig toevoegen',
   'bill.newItem': 'Nieuw artikel',
@@ -413,7 +404,6 @@ const nl: Catalog = {
     'Zodra alles geclaimd is, verschijnen hier het overzicht en de vergrendelknop.',
   'bill.parsing':
     'Scannen (een bon van meerdere pagina’s duurt tot een minuut)…',
-  'bill.processingTitle': 'AI verwerkt je bon',
   'bill.parseTimeout':
     'Scan duurde te lang — ververs zo meteen, of probeer opnieuw',
   'bill.savingTotals': 'Totalen opslaan…',
@@ -449,7 +439,6 @@ const nl: Catalog = {
     'De organisator stuurt je een code van 5 cijfers; alleen jij ziet en claimt jouw deel.',
   'claim.codePlaceholder': '5 cijfers',
   'claim.enterBtn': 'Binnengaan',
-  'claim.entering': 'Je claim wordt geopend…',
   'claim.codeWrong':
     'Die code klopt niet — vraag het even na bij de organisator.',
   'claim.youAre': 'Jij bent “{name}”',
@@ -465,7 +454,6 @@ const nl: Catalog = {
     'Kies eerst je huishouden en vink daarna aan wat jij gekocht hebt.',
   'claim.photo': '📷 Claimen met foto (AI selecteert alvast)',
   'claim.photoBusy': 'AI kijkt mee…',
-  'claim.photoProcessingTitle': 'AI bekijkt je foto',
   'claim.photoHint':
     'Fotografeer wat je gekocht hebt; AI raadt welke artikelen van jou zijn — jij bevestigt.',
   'claim.photoFailed': 'Fotoscan mislukt: {error}',
@@ -544,7 +532,6 @@ const de: Catalog = {
   'common.add': 'Hinzufügen',
   'common.confirm': 'Bestätigen',
   'common.loading': 'Lädt…',
-  'common.waitTitle': 'Bitte warten',
   'common.copied': 'Kopiert ✓',
 
   'nav.billList': 'AAbill',
@@ -575,7 +562,7 @@ const de: Catalog = {
   'bill.vatA': 'MwSt. A',
   'bill.vatB': 'MwSt. B',
   'bill.gross': 'Brutto',
-  'bill.saveAndValidate': 'Summen aktualisieren und neu prüfen',
+  'bill.saveAndValidate': 'Summen speichern und prüfen',
   'bill.items': 'Positionen ({n})',
   'bill.addRow': '＋ Zeile manuell hinzufügen',
   'bill.newItem': 'Neue Position',
@@ -595,7 +582,6 @@ const de: Catalog = {
     'Sobald alles beansprucht ist, erscheinen hier Übersicht und Sperr-Button.',
   'bill.parsing':
     'Erkennung läuft (mehrseitige Rechnungen dauern bis zu einer Minute)…',
-  'bill.processingTitle': 'KI verarbeitet deinen Beleg',
   'bill.parseTimeout':
     'Zeitüberschreitung bei der Erkennung — gleich neu laden oder erneut versuchen',
   'bill.savingTotals': 'Summen werden gespeichert…',
@@ -631,7 +617,6 @@ const de: Catalog = {
     'Der Organisator schickt dir einen 5-stelligen Code; nur du siehst und beanspruchst deinen Anteil.',
   'claim.codePlaceholder': '5 Ziffern',
   'claim.enterBtn': 'Eintreten',
-  'claim.entering': 'Dein Anspruch wird geöffnet…',
   'claim.codeWrong':
     'Der Code stimmt nicht — bitte beim Organisator nachfragen.',
   'claim.youAre': 'Du bist „{name}“',
@@ -647,7 +632,6 @@ const de: Catalog = {
     'Wähle zuerst deinen Haushalt und hake dann an, was du gekauft hast.',
   'claim.photo': '📷 Per Foto beanspruchen (KI wählt vor)',
   'claim.photoBusy': 'KI schaut nach…',
-  'claim.photoProcessingTitle': 'KI prüft dein Foto',
   'claim.photoHint':
     'Fotografiere, was du gekauft hast; die KI rät, welche Positionen dir gehören — du bestätigst.',
   'claim.photoFailed': 'Foto-Erkennung fehlgeschlagen: {error}',

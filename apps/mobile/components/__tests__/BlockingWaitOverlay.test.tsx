@@ -18,7 +18,11 @@ describe('BlockingWaitOverlay', () => {
 
   it('通讯中显示醒目的阻断层与当前操作', () => {
     render(
-      <BlockingWaitOverlay visible title="请稍候" message="正在添加家庭…" />,
+      <BlockingWaitOverlay
+        visible
+        title="请稍候"
+        message="正在添加家庭…"
+      />,
     );
 
     expect(screen.getByTestId('blocking-wait-overlay')).toBeTruthy();
