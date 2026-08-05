@@ -39,6 +39,7 @@ export function Button({
   const v = VARIANTS[variant];
   const isDisabled = disabled || loading;
   const isGhost = variant === 'ghost';
+  const foreground = isDisabled ? color.inkFaint : v.fg;
 
   return (
     <Pressable
@@ -61,17 +62,17 @@ export function Button({
             : undefined,
         },
         fullWidth && styles.fullWidth,
-        isDisabled && styles.disabled,
+        isDisabled && !isGhost && styles.disabledFilled,
       ]}
       {...rest}
     >
       <View style={styles.inner}>
         {loading ? (
-          <ActivityIndicator size="small" color={v.fg} />
+          <ActivityIndicator size="small" color={foreground} />
         ) : (
           <>
-            {IconCmp && <IconCmp size={18} color={v.fg} />}
-            <Text variant="label" style={[styles.label, { color: v.fg }]}>
+            {IconCmp && <IconCmp size={18} color={foreground} />}
+            <Text variant="label" style={[styles.label, { color: foreground }]}>
               {label}
             </Text>
           </>
@@ -107,7 +108,12 @@ const styles = StyleSheet.create({
     minHeight: 40,
   },
   fullWidth: { alignSelf: 'stretch' },
-  disabled: { opacity: 0.45 },
+  disabledFilled: {
+    backgroundColor: color.canvasSunk,
+    borderColor: color.border,
+    borderBottomColor: color.border,
+    opacity: 1,
+  },
   inner: {
     flexDirection: 'row',
     alignItems: 'center',

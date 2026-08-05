@@ -216,9 +216,17 @@ export default function BillScreen() {
   if (!bill) {
     return (
       <Screen>
-        <Text variant="body" tone="muted">
-          {error ? errorMessage(error).message : t('common.loading')}
-        </Text>
+        {error ? (
+          <Text variant="body" tone="danger">
+            {errorMessage(error).message}
+          </Text>
+        ) : (
+          <BlockingWaitOverlay
+            visible
+            title={t('common.waitTitle')}
+            message={t('common.loading')}
+          />
+        )}
       </Screen>
     );
   }
@@ -377,10 +385,11 @@ export default function BillScreen() {
                 ))}
               </View>
               <Button
+                testID="save-totals-and-recheck"
                 label={t('bill.saveAndValidate')}
+                variant="ghost"
                 onPress={saveTotals}
                 disabled={!!busy}
-                fullWidth
               />
             </Card>
 
