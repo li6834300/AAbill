@@ -46,9 +46,16 @@ import {
 import { Camera, External, Lock, Plus } from '../../components/icons';
 import { ReceiptMascot } from '../../components/characters/ReceiptMascot';
 import { CoinMascot } from '../../components/characters/CoinMascot';
+import { BlockingWaitOverlay } from '../../components/BlockingWaitOverlay';
 import { color, space } from '../../theme/tokens';
 
 const TOLERANCE_CENTS = 20; // 与 ValidationBanner 一致:尾差内视为通过
+
+/** 用户主动发起的远端操作:阻断层文案 + 视觉层级(ai 更醒目) */
+interface BusyState {
+  message: string;
+  variant: 'waiting' | 'ai';
+}
 
 const euroToCents = (text: string): number | null => {
   try {
@@ -84,7 +91,7 @@ export default function BillScreen() {
   const [validation, setValidation] = useState<ValidateResponse | null>(null);
   const [settlement, setSettlement] = useState<SettlementResponse | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
-  const [busy, setBusy] = useState<string | null>(null);
+  const [busy, setBusy] = useState<BusyState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showRawError, setShowRawError] = useState(false);
   // 视图阶段是**用户驱动**的:首次进入停在数据支持的最远阶段,之后绝不自动前进。
@@ -123,8 +130,12 @@ export default function BillScreen() {
     void refresh();
   }, [refresh]);
 
-  const run = async (label: string, fn: () => Promise<unknown>) => {
-    setBusy(label);
+  const run = async (
+    message: string,
+    fn: () => Promise<unknown>,
+    variant: BusyState['variant'] = 'waiting',
+  ) => {
+    setBusy({ message, variant });
     try {
       await fn();
       await refresh();
@@ -137,28 +148,34 @@ export default function BillScreen() {
 
   const pickAndParse = () =>
     // 识别完成后**强制停在校对**:让用户逐条核对 AI 结果(可能错、可能漏),不自动前进。
-    run(t('bill.parsing'), async () => {
-      const picked = await pickInvoice();
-      if (!picked) return;
-      setViewStage('review');
-      const beforeAiIds = new Set(
-        (bill?.items ?? []).filter((i) => i.source === 'ai').map((i) => i.id),
-      );
-      const hasNewAiItems = async () => {
-        const b = await api.getBill(id!);
-        return b.items.some((i) => i.source === 'ai' && !beforeAiIds.has(i.id));
-      };
-      try {
-        await api.parse(id!, picked.base64, picked.mimeType, lang);
-      } catch {
-        // Heroku 30s 网关超时:识别很可能仍在后台完成 → 轮询等结果
-        for (let i = 0; i < 15; i++) {
-          await new Promise((r) => setTimeout(r, 4000));
-          if (await hasNewAiItems()) return;
+    run(
+      t('bill.parsing'),
+      async () => {
+        const picked = await pickInvoice();
+        if (!picked) return;
+        setViewStage('review');
+        const beforeAiIds = new Set(
+          (bill?.items ?? []).filter((i) => i.source === 'ai').map((i) => i.id),
+        );
+        const hasNewAiItems = async () => {
+          const b = await api.getBill(id!);
+          return b.items.some(
+            (i) => i.source === 'ai' && !beforeAiIds.has(i.id),
+          );
+        };
+        try {
+          await api.parse(id!, picked.base64, picked.mimeType, lang);
+        } catch {
+          // Heroku 30s 网关超时:识别很可能仍在后台完成 → 轮询等结果
+          for (let i = 0; i < 15; i++) {
+            await new Promise((r) => setTimeout(r, 4000));
+            if (await hasNewAiItems()) return;
+          }
+          throw new Error(t('bill.parseTimeout'));
         }
-        throw new Error(t('bill.parseTimeout'));
-      }
-    });
+      },
+      'ai',
+    );
 
   const saveTotals = () =>
     // 存完合计仍**停在校对**:让用户看校验结果、逐条核对,不因"恰好对上"就前进。
@@ -281,12 +298,6 @@ export default function BillScreen() {
           </Banner>
         )}
 
-        {busy && (
-          <Text variant="muted" tone="muted">
-            {busy}
-          </Text>
-        )}
-
         {/* ── 阶段卡 ── */}
         {shownStage === 'scan' && (
           <Card tone="dashed">
@@ -302,7 +313,10 @@ export default function BillScreen() {
                 country={bill.taxCountry}
                 rates={bill.taxRates}
                 onChange={async (c, reducedRateBp) => {
-                  setBusy(t('bill.savingTax'));
+                  setBusy({
+                    message: t('bill.savingTax'),
+                    variant: 'waiting',
+                  });
                   try {
                     setBill(await api.setTaxCountry(bill.id, c, reducedRateBp));
                   } catch (e) {
@@ -519,6 +533,18 @@ export default function BillScreen() {
           />
         </View>
       </Sheet>
+
+      {/* 用户发起的远端操作:阻断层防重复提交(AI 识别用醒目变体) */}
+      <BlockingWaitOverlay
+        visible={!!busy}
+        variant={busy?.variant}
+        title={
+          busy?.variant === 'ai'
+            ? t('bill.processingTitle')
+            : t('common.waitTitle')
+        }
+        message={busy?.message ?? ''}
+      />
     </>
   );
 }

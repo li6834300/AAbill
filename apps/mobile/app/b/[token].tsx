@@ -13,6 +13,8 @@ import { ClaimSuggestionReview } from '../../components/ClaimSuggestionReview';
 import { LanguagePicker } from '../../components/LanguagePicker';
 import { api, type ClaimConflict } from '../../lib/api';
 import { claimTotals } from '../../lib/claim-total';
+import { hasClaimChanges } from '../../lib/claim-draft';
+import { BlockingWaitOverlay } from '../../components/BlockingWaitOverlay';
 import { useLang } from '../../lib/use-lang';
 import { pickInvoice } from '../../lib/pick-invoice';
 import { color, radius, space } from '../../theme/tokens';
@@ -71,6 +73,8 @@ export default function ClaimScreen() {
   const { t } = useLang();
   const { token } = useLocalSearchParams<{ token: string }>();
   const [summary, setSummary] = useState<ShareSummary | null>(null);
+  const [loadingSummary, setLoadingSummary] = useState(true);
+  const [entering, setEntering] = useState(false);
   const [view, setView] = useState<FamilyClaimView | null>(null);
   const [code, setCode] = useState<string | null>(null);
   const [codeInput, setCodeInput] = useState('');
@@ -88,10 +92,11 @@ export default function ClaimScreen() {
   // 轮询对比"总剩余量",变少了说明别家刚认领 → 轻提示
   const remainingRef = useRef<number | null>(null);
 
-  /** 凭口令进入自己那家;initDraft=true 时用服务端已有认领初始化本地草稿 */
+  /** 凭口令进入自己那家;initDraft=true 用服务端已有认领初始化草稿;showWaiting 控制阻断层 */
   const enterWith = useCallback(
-    async (c: string, initDraft = true) => {
+    async (c: string, initDraft = true, showWaiting = true) => {
       if (!token) return;
+      if (showWaiting) setEntering(true);
       try {
         const v = await api.enterFamily(token, c);
         setView(v);
@@ -109,6 +114,8 @@ export default function ClaimScreen() {
         }
       } catch {
         setError(t('claim.codeWrong'));
+      } finally {
+        if (showWaiting) setEntering(false);
       }
     },
     [token, t],
@@ -144,9 +151,11 @@ export default function ClaimScreen() {
         if (!alive) return;
         setSummary(s);
         const saved = readCode(token);
-        if (saved) await enterWith(saved, false);
+        if (saved) await enterWith(saved, true, false);
       } catch (e) {
         if (alive) setError(String(e));
+      } finally {
+        if (alive) setLoadingSummary(false);
       }
     })();
     return () => {
@@ -236,6 +245,11 @@ export default function ClaimScreen() {
             />
           </Card>
         )}
+        <BlockingWaitOverlay
+          visible={loadingSummary || entering}
+          title={t('common.waitTitle')}
+          message={entering ? t('claim.entering') : t('common.loading')}
+        />
       </Screen>
     );
   }
@@ -249,7 +263,7 @@ export default function ClaimScreen() {
   const chosen = view.items.filter(
     (i) => !i.isShared && (draft[i.id] ?? 0) > 0,
   );
-  const dirty = Object.values(draft).some((n) => n > 0) || chosen.length > 0;
+  const dirty = hasClaimChanges(view.items, draft);
 
   const submit = async () => {
     if (!code) return;
@@ -453,6 +467,7 @@ export default function ClaimScreen() {
               )}
             </View>
             <Button
+              testID="submit-claims"
               label={submitting ? t('claim.submitting') : t('claim.submit')}
               onPress={() => void submit()}
               disabled={submitting || !dirty}
@@ -461,6 +476,16 @@ export default function ClaimScreen() {
           </StickyBar>
         )}
       </KeyboardAvoidingView>
+
+      {/* 提交 / 拍照识别时的阻断层(拍照用 AI 醒目变体) */}
+      <BlockingWaitOverlay
+        visible={submitting || suggesting}
+        variant={suggesting ? 'ai' : 'waiting'}
+        title={
+          suggesting ? t('claim.photoProcessingTitle') : t('common.waitTitle')
+        }
+        message={suggesting ? t('claim.photoBusy') : t('claim.submitting')}
+      />
     </View>
   );
 }
