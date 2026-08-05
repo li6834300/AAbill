@@ -21,7 +21,14 @@ const zh = {
   'common.delete': '删除',
   'common.add': '添加',
   'common.confirm': '确认',
+  'common.details': '详情',
+  'common.next': '下一步',
+  'error.network': '网络连接不太好,请检查后重试。',
+  'error.auth': '登录已失效,请重新登录。',
+  'error.conflict': '数据刚有变化,请刷新后再试。',
+  'error.generic': '出错了,请重试。',
   'common.loading': '加载中…',
+  'common.waitTitle': '请稍候',
   'common.copied': '已复制 ✓',
 
   'nav.billList': 'AAbill 账单',
@@ -34,13 +41,19 @@ const zh = {
   'login.devHint': '开发登录:输入邮箱即可',
   'login.submit': '登录',
   'login.failed': '登录失败 {status}',
+  'login.tagline': '拍张超市发票,AI 帮你和朋友把账分清楚。',
 
   'bills.mine': '我的账单',
   'bills.logout': '退出登录',
   'bills.titlePlaceholder': '账单标题(如 Metro 05-16)',
   'bills.create': '新建',
-  'bills.empty': '还没有账单,拍一张发票开始吧。',
+  'bills.newBill': '新建账单',
+  'bills.empty': '还没有账单',
+  'bills.emptyHint': '拍一张发票,AI 识别商品,朋友免登录认领。',
   'bills.taxPending': '税制待定',
+  'bills.status.draft': '草稿',
+  'bills.status.claiming': '认领中',
+  'bills.status.locked': '已锁定',
 
   'bill.upload': '上传发票识别(图片或 PDF)',
   'bill.reupload': '重新识别发票(覆盖 AI 条目)',
@@ -50,13 +63,13 @@ const zh = {
   'bill.vatA': 'A 税额',
   'bill.vatB': 'B 税额',
   'bill.gross': '含税',
-  'bill.saveAndValidate': '保存合计并校验',
+  'bill.saveAndValidate': '更新并重新校验',
   'bill.items': '条目({n})',
   'bill.addRow': '＋ 手动加行',
   'bill.newItem': '新条目',
   'bill.families': '参与家庭',
   'bill.noFamilies':
-    '⚠️ 还没添加家庭 —— 朋友打开分享链接将无法认领,请先把参与的家庭加上。',
+    '还没添加家庭 —— 朋友打开分享链接将无法认领,请先把参与的家庭加上。',
   'bill.share': '分享认领',
   'bill.copyLink': '复制分享链接',
   'bill.shareHint': '把这条「认领链接」发给朋友(不要发浏览器地址栏里的网址)。',
@@ -67,6 +80,7 @@ const zh = {
   'bill.lock': '锁定账单(认领与条目不可再改)',
   'bill.lockHint': '全部商品认领完成后,这里会出现 AA 汇总与锁定按钮。',
   'bill.parsing': '识别中(多页发票可能要 1 分钟)…',
+  'bill.processingTitle': 'AI 正在处理发票',
   'bill.parseTimeout': '识别超时,请稍后刷新看看,或重试',
   'bill.savingTotals': '保存合计…',
   'bill.badAmount': '合计金额格式不对(最多两位小数)',
@@ -77,9 +91,22 @@ const zh = {
   'bill.removingFamily': '删除家庭…',
   'bill.savingTax': '保存税制…',
   'bill.locking': '锁定中…',
+  'stage.scan': '扫发票',
+  'stage.review': '校对',
+  'stage.share': '分享',
+  'stage.summary': '汇总',
+  'stage.scanTitle': '扫描发票',
+  'stage.scanHint': '拍照或上传发票,AI 识别所有商品。',
+  'stage.reviewDone': '{n} 条商品 · {tax}',
+  'stage.shareDone': '{n} 个家庭已加入',
+  'bill.lockConfirmTitle': '锁定这张账单?',
+  'bill.lockConfirmBody':
+    '锁定后朋友不能再修改认领,汇总即为最终结果。此操作不可撤销。',
+  'bill.lockConfirm': '确认锁定',
+  'bill.settled': '算清啦',
 
-  'validate.ok': '✓ 与发票合计一致',
-  'validate.near': '✓ 基本吻合(尾差 {amount} €,四舍五入所致)',
+  'validate.ok': '与发票合计一致',
+  'validate.near': '基本吻合(尾差 {amount} €,四舍五入所致)',
   'validate.mismatch': '合计对不上,请核对条目:',
   'validate.netDiff': '净额差',
   'validate.vatADiff': 'A 税额差',
@@ -101,6 +128,7 @@ const zh = {
     '发起人会把一个 5 位数字口令发给你;只有你能看到并认领自己那份。',
   'claim.codePlaceholder': '5 位数字',
   'claim.enterBtn': '进入',
+  'claim.entering': '正在进入认领页面…',
   'claim.codeWrong': '口令不正确,请向发起人确认。',
   'claim.youAre': '你是「{name}」',
   'claim.switchCode': '不是这家?换口令',
@@ -110,12 +138,17 @@ const zh = {
   'claim.noFamiliesHint':
     '请让发起人在账单页的「参与家庭」里把大家加上,然后刷新本页。',
   'claim.pickFamilyFirst': '先选择你的家庭,再勾选自己买的商品。',
-  'claim.photo': '📷 拍照认领(AI 帮你预选)',
+  'claim.photo': '拍照认领(AI 帮你预选)',
   'claim.photoBusy': 'AI 识别中…',
+  'claim.photoProcessingTitle': 'AI 正在识别照片',
   'claim.photoHint':
     '对着你买的东西拍一张,AI 会猜哪些是你的 —— 结果需要你确认。',
   'claim.photoFailed': '拍照识别失败:{error}',
   'claim.items': '商品({n})',
+  'claim.claimable': '可认领({n})',
+  'claim.sharedGroup': '大家均摊({n})',
+  'claim.switchFamily': '换一家',
+  'claim.othersUpdated': '别家的认领有更新',
   'claim.chosen': '已选 {kinds} 种 / 共 {units} 件',
   'claim.estimated': '预计应付 {amount} €',
   'claim.exclTax': '(未含税)',
@@ -123,7 +156,7 @@ const zh = {
   'claim.noTaxYet': '发起人尚未确定税制,暂只显示净额;最终以锁定后的汇总为准。',
   'claim.submit': '提交我的认领',
   'claim.submitting': '提交中…',
-  'claim.submitted': '✓ 已提交,大家都能看到了',
+  'claim.submitted': '已提交,大家都能看到了',
   'claim.autoSync': '每 5 秒自动同步别家的认领状态。',
   'claim.conflict':
     '你要领 {requested} 件,但别家已领 {claimedByOthers} 件,只剩 {available} 件',
@@ -139,7 +172,7 @@ const zh = {
   'claim.maxQty': '最多可领 {n} 件',
 
   'suggest.warning':
-    '⚠️ 以下是 AI 看照片猜的,可能有误或有遗漏 —— 请你逐项确认后再认领。',
+    '以下是 AI 看照片猜的,可能有误或有遗漏 —— 请你逐项确认后再认领。',
   'suggest.none':
     'AI 没认出账单里的任何商品。可以换个角度重拍,或直接在下面手动勾选。',
   'suggest.confirm': '确认认领({n})',
@@ -184,7 +217,14 @@ const en: Catalog = {
   'common.delete': 'Delete',
   'common.add': 'Add',
   'common.confirm': 'Confirm',
+  'common.details': 'Details',
+  'common.next': 'Next',
+  'error.network': 'Network looks shaky — check your connection and retry.',
+  'error.auth': 'Your session expired — please sign in again.',
+  'error.conflict': 'Something just changed — refresh and try again.',
+  'error.generic': 'Something went wrong. Please try again.',
   'common.loading': 'Loading…',
+  'common.waitTitle': 'Please wait',
   'common.copied': 'Copied ✓',
 
   'nav.billList': 'AAbill',
@@ -197,13 +237,21 @@ const en: Catalog = {
   'login.devHint': 'Dev sign-in: just enter an email',
   'login.submit': 'Sign in',
   'login.failed': 'Sign-in failed ({status})',
+  'login.tagline':
+    'Snap a supermarket receipt — AI helps you split it with friends.',
 
   'bills.mine': 'My bills',
   'bills.logout': 'Sign out',
   'bills.titlePlaceholder': 'Bill title (e.g. Metro 05-16)',
   'bills.create': 'New',
-  'bills.empty': 'No bills yet — snap a receipt to get started.',
+  'bills.newBill': 'New bill',
+  'bills.empty': 'No bills yet',
+  'bills.emptyHint':
+    'Snap a receipt, AI reads the items, friends claim without signing in.',
   'bills.taxPending': 'VAT regime pending',
+  'bills.status.draft': 'Draft',
+  'bills.status.claiming': 'Claiming',
+  'bills.status.locked': 'Locked',
 
   'bill.upload': 'Upload receipt (image or PDF)',
   'bill.reupload': 'Re-scan receipt (replaces AI rows)',
@@ -213,13 +261,13 @@ const en: Catalog = {
   'bill.vatA': 'VAT A',
   'bill.vatB': 'VAT B',
   'bill.gross': 'Gross',
-  'bill.saveAndValidate': 'Save totals and check',
+  'bill.saveAndValidate': 'Update totals and recheck',
   'bill.items': 'Items ({n})',
   'bill.addRow': '＋ Add row manually',
   'bill.newItem': 'New item',
   'bill.families': 'Households',
   'bill.noFamilies':
-    '⚠️ No households yet — friends opening the share link cannot claim anything. Add them first.',
+    'No households yet — friends opening the share link cannot claim anything. Add them first.',
   'bill.share': 'Share for claiming',
   'bill.copyLink': 'Copy share link',
   'bill.shareHint':
@@ -232,6 +280,7 @@ const en: Catalog = {
   'bill.lockHint':
     'Once every item is claimed, the summary and lock button appear here.',
   'bill.parsing': 'Scanning (a multi-page receipt may take a minute)…',
+  'bill.processingTitle': 'AI is processing your receipt',
   'bill.parseTimeout': 'Scan timed out — refresh in a moment, or try again',
   'bill.savingTotals': 'Saving totals…',
   'bill.badAmount': 'Invalid amount (at most two decimals)',
@@ -242,9 +291,22 @@ const en: Catalog = {
   'bill.removingFamily': 'Removing household…',
   'bill.savingTax': 'Saving VAT regime…',
   'bill.locking': 'Locking…',
+  'stage.scan': 'Scan',
+  'stage.review': 'Review',
+  'stage.share': 'Share',
+  'stage.summary': 'Summary',
+  'stage.scanTitle': 'Scan the receipt',
+  'stage.scanHint': 'Photograph or upload the receipt — AI reads every item.',
+  'stage.reviewDone': '{n} items · {tax}',
+  'stage.shareDone': '{n} households joined',
+  'bill.lockConfirmTitle': 'Lock this bill?',
+  'bill.lockConfirmBody':
+    'Once locked, friends can no longer change their claims and the summary is final. This cannot be undone.',
+  'bill.lockConfirm': 'Lock it',
+  'bill.settled': 'All settled',
 
-  'validate.ok': '✓ Matches the printed totals',
-  'validate.near': '✓ Close enough ({amount} € off, rounding)',
+  'validate.ok': 'Matches the printed totals',
+  'validate.near': 'Close enough ({amount} € off, rounding)',
   'validate.mismatch': 'Totals do not match — please check the items:',
   'validate.netDiff': 'Net diff',
   'validate.vatADiff': 'VAT A diff',
@@ -266,6 +328,7 @@ const en: Catalog = {
     'The organiser sends you a 5-digit code; only you can see and claim your share.',
   'claim.codePlaceholder': '5 digits',
   'claim.enterBtn': 'Enter',
+  'claim.entering': 'Opening your claim…',
   'claim.codeWrong':
     'That code is not correct — please check with the organiser.',
   'claim.youAre': 'You are “{name}”',
@@ -278,12 +341,17 @@ const en: Catalog = {
     'Ask them to add everyone under “Households” on the bill page, then refresh this page.',
   'claim.pickFamilyFirst':
     'Pick your household first, then tick the items you bought.',
-  'claim.photo': '📷 Claim by photo (AI pre-selects)',
+  'claim.photo': 'Claim by photo (AI pre-selects)',
   'claim.photoBusy': 'AI is looking…',
+  'claim.photoProcessingTitle': 'AI is checking your photo',
   'claim.photoHint':
     'Photograph what you bought and AI will guess which items are yours — you confirm the result.',
   'claim.photoFailed': 'Photo scan failed: {error}',
   'claim.items': 'Items ({n})',
+  'claim.claimable': 'To claim ({n})',
+  'claim.sharedGroup': 'Split by everyone ({n})',
+  'claim.switchFamily': 'Switch',
+  'claim.othersUpdated': 'Someone updated their claims',
   'claim.chosen': '{kinds} kinds selected / {units} pcs total',
   'claim.estimated': 'Estimated total {amount} €',
   'claim.exclTax': ' (excl. VAT)',
@@ -293,7 +361,7 @@ const en: Catalog = {
     'The owner has not set the VAT regime yet, so only the net amount is shown; the locked summary is final.',
   'claim.submit': 'Submit my claims',
   'claim.submitting': 'Submitting…',
-  'claim.submitted': '✓ Submitted — everyone can see it now',
+  'claim.submitted': 'Submitted — everyone can see it now',
   'claim.autoSync': 'Other households’ claims sync every 5 seconds.',
   'claim.conflict':
     'You asked for {requested}, but others already claimed {claimedByOthers} — only {available} left',
@@ -310,7 +378,7 @@ const en: Catalog = {
   'claim.maxQty': 'At most {n} available',
 
   'suggest.warning':
-    '⚠️ These are AI guesses from your photo and may be wrong or incomplete — please check each one before claiming.',
+    'These are AI guesses from your photo and may be wrong or incomplete — please check each one before claiming.',
   'suggest.none':
     'AI did not recognise any item from this bill. Try another angle, or tick them manually below.',
   'suggest.confirm': 'Claim selected ({n})',
@@ -355,7 +423,15 @@ const nl: Catalog = {
   'common.delete': 'Verwijderen',
   'common.add': 'Toevoegen',
   'common.confirm': 'Bevestigen',
+  'common.details': 'Details',
+  'common.next': 'Volgende',
+  'error.network':
+    'De verbinding is wankel — controleer je netwerk en probeer opnieuw.',
+  'error.auth': 'Je sessie is verlopen — log opnieuw in.',
+  'error.conflict': 'Er is net iets gewijzigd — vernieuw en probeer opnieuw.',
+  'error.generic': 'Er ging iets mis. Probeer het opnieuw.',
   'common.loading': 'Laden…',
+  'common.waitTitle': 'Even geduld',
   'common.copied': 'Gekopieerd ✓',
 
   'nav.billList': 'AAbill',
@@ -368,13 +444,21 @@ const nl: Catalog = {
   'login.devHint': 'Dev-login: voer een e-mailadres in',
   'login.submit': 'Inloggen',
   'login.failed': 'Inloggen mislukt ({status})',
+  'login.tagline':
+    'Maak een foto van een kassabon — AI helpt je splitsen met vrienden.',
 
   'bills.mine': 'Mijn bonnen',
   'bills.logout': 'Uitloggen',
   'bills.titlePlaceholder': 'Titel van de bon (bijv. Metro 05-16)',
   'bills.create': 'Nieuw',
-  'bills.empty': 'Nog geen bonnen — maak een foto van een bon om te beginnen.',
+  'bills.newBill': 'Nieuwe bon',
+  'bills.empty': 'Nog geen bonnen',
+  'bills.emptyHint':
+    'Maak een foto, AI leest de items, vrienden claimen zonder in te loggen.',
   'bills.taxPending': 'Btw-regime onbekend',
+  'bills.status.draft': 'Concept',
+  'bills.status.claiming': 'Claimen',
+  'bills.status.locked': 'Vergrendeld',
 
   'bill.upload': 'Bon uploaden (afbeelding of PDF)',
   'bill.reupload': 'Bon opnieuw scannen (vervangt AI-regels)',
@@ -384,13 +468,13 @@ const nl: Catalog = {
   'bill.vatA': 'Btw A',
   'bill.vatB': 'Btw B',
   'bill.gross': 'Bruto',
-  'bill.saveAndValidate': 'Totalen opslaan en controleren',
+  'bill.saveAndValidate': 'Totalen bijwerken en opnieuw controleren',
   'bill.items': 'Artikelen ({n})',
   'bill.addRow': '＋ Regel handmatig toevoegen',
   'bill.newItem': 'Nieuw artikel',
   'bill.families': 'Huishoudens',
   'bill.noFamilies':
-    '⚠️ Nog geen huishoudens — wie de deellink opent kan niets claimen. Voeg ze eerst toe.',
+    'Nog geen huishoudens — wie de deellink opent kan niets claimen. Voeg ze eerst toe.',
   'bill.share': 'Delen om te claimen',
   'bill.copyLink': 'Deellink kopiëren',
   'bill.shareHint':
@@ -404,6 +488,7 @@ const nl: Catalog = {
     'Zodra alles geclaimd is, verschijnen hier het overzicht en de vergrendelknop.',
   'bill.parsing':
     'Scannen (een bon van meerdere pagina’s duurt tot een minuut)…',
+  'bill.processingTitle': 'AI verwerkt je bon',
   'bill.parseTimeout':
     'Scan duurde te lang — ververs zo meteen, of probeer opnieuw',
   'bill.savingTotals': 'Totalen opslaan…',
@@ -415,9 +500,22 @@ const nl: Catalog = {
   'bill.removingFamily': 'Huishouden verwijderen…',
   'bill.savingTax': 'Btw-regime opslaan…',
   'bill.locking': 'Vergrendelen…',
+  'stage.scan': 'Scannen',
+  'stage.review': 'Nakijken',
+  'stage.share': 'Delen',
+  'stage.summary': 'Overzicht',
+  'stage.scanTitle': 'Scan de bon',
+  'stage.scanHint': 'Fotografeer of upload de bon — AI leest elk artikel.',
+  'stage.reviewDone': '{n} artikelen · {tax}',
+  'stage.shareDone': '{n} huishoudens toegevoegd',
+  'bill.lockConfirmTitle': 'Deze bon vergrendelen?',
+  'bill.lockConfirmBody':
+    'Na vergrendeling kunnen vrienden hun claims niet meer wijzigen en is het overzicht definitief. Dit kan niet ongedaan worden gemaakt.',
+  'bill.lockConfirm': 'Vergrendelen',
+  'bill.settled': 'Alles verdeeld',
 
-  'validate.ok': '✓ Komt overeen met de gedrukte totalen',
-  'validate.near': '✓ Vrijwel gelijk ({amount} € verschil door afronding)',
+  'validate.ok': 'Komt overeen met de gedrukte totalen',
+  'validate.near': 'Vrijwel gelijk ({amount} € verschil door afronding)',
   'validate.mismatch': 'Totalen kloppen niet — controleer de regels:',
   'validate.netDiff': 'Verschil netto',
   'validate.vatADiff': 'Verschil btw A',
@@ -439,6 +537,7 @@ const nl: Catalog = {
     'De organisator stuurt je een code van 5 cijfers; alleen jij ziet en claimt jouw deel.',
   'claim.codePlaceholder': '5 cijfers',
   'claim.enterBtn': 'Binnengaan',
+  'claim.entering': 'Je claim wordt geopend…',
   'claim.codeWrong':
     'Die code klopt niet — vraag het even na bij de organisator.',
   'claim.youAre': 'Jij bent “{name}”',
@@ -452,12 +551,17 @@ const nl: Catalog = {
     'Vraag of ze iedereen toevoegen onder “Huishoudens” op de bonpagina en ververs deze pagina.',
   'claim.pickFamilyFirst':
     'Kies eerst je huishouden en vink daarna aan wat jij gekocht hebt.',
-  'claim.photo': '📷 Claimen met foto (AI selecteert alvast)',
+  'claim.photo': 'Claimen met foto (AI selecteert alvast)',
   'claim.photoBusy': 'AI kijkt mee…',
+  'claim.photoProcessingTitle': 'AI bekijkt je foto',
   'claim.photoHint':
     'Fotografeer wat je gekocht hebt; AI raadt welke artikelen van jou zijn — jij bevestigt.',
   'claim.photoFailed': 'Fotoscan mislukt: {error}',
   'claim.items': 'Artikelen ({n})',
+  'claim.claimable': 'Te claimen ({n})',
+  'claim.sharedGroup': 'Door iedereen gedeeld ({n})',
+  'claim.switchFamily': 'Wisselen',
+  'claim.othersUpdated': 'Iemand heeft claims bijgewerkt',
   'claim.chosen': '{kinds} soorten gekozen / {units} stuks totaal',
   'claim.estimated': 'Geschat te betalen {amount} €',
   'claim.exclTax': ' (excl. btw)',
@@ -467,7 +571,7 @@ const nl: Catalog = {
     'De eigenaar heeft het btw-regime nog niet vastgesteld, dus alleen het nettobedrag wordt getoond; het vergrendelde overzicht is bepalend.',
   'claim.submit': 'Mijn claims indienen',
   'claim.submitting': 'Indienen…',
-  'claim.submitted': '✓ Ingediend — iedereen kan het nu zien',
+  'claim.submitted': 'Ingediend — iedereen kan het nu zien',
   'claim.autoSync':
     'Claims van andere huishoudens worden elke 5 seconden bijgewerkt.',
   'claim.conflict':
@@ -486,7 +590,7 @@ const nl: Catalog = {
   'claim.maxQty': 'Hoogstens {n} beschikbaar',
 
   'suggest.warning':
-    '⚠️ Dit zijn gokjes van de AI op basis van je foto en kunnen fout of onvolledig zijn — controleer ze stuk voor stuk.',
+    'Dit zijn gokjes van de AI op basis van je foto en kunnen fout of onvolledig zijn — controleer ze stuk voor stuk.',
   'suggest.none':
     'De AI herkende geen enkel artikel van deze bon. Probeer een andere hoek, of vink ze hieronder handmatig aan.',
   'suggest.confirm': 'Selectie claimen ({n})',
@@ -531,7 +635,16 @@ const de: Catalog = {
   'common.delete': 'Löschen',
   'common.add': 'Hinzufügen',
   'common.confirm': 'Bestätigen',
+  'common.details': 'Details',
+  'common.next': 'Weiter',
+  'error.network':
+    'Die Verbindung wirkt instabil — bitte prüfen und erneut versuchen.',
+  'error.auth': 'Deine Sitzung ist abgelaufen — bitte erneut anmelden.',
+  'error.conflict':
+    'Gerade hat sich etwas geändert — aktualisieren und erneut versuchen.',
+  'error.generic': 'Etwas ist schiefgelaufen. Bitte erneut versuchen.',
   'common.loading': 'Lädt…',
+  'common.waitTitle': 'Bitte warten',
   'common.copied': 'Kopiert ✓',
 
   'nav.billList': 'AAbill',
@@ -545,14 +658,21 @@ const de: Catalog = {
   'login.devHint': 'Dev-Login: einfach eine E-Mail eingeben',
   'login.submit': 'Anmelden',
   'login.failed': 'Anmeldung fehlgeschlagen ({status})',
+  'login.tagline':
+    'Fotografiere einen Kassenbon — die KI hilft dir, ihn mit Freunden zu teilen.',
 
   'bills.mine': 'Meine Rechnungen',
   'bills.logout': 'Abmelden',
   'bills.titlePlaceholder': 'Titel der Rechnung (z. B. Metro 05-16)',
   'bills.create': 'Neu',
-  'bills.empty':
-    'Noch keine Rechnungen — fotografiere einen Beleg, um zu starten.',
+  'bills.newBill': 'Neue Rechnung',
+  'bills.empty': 'Noch keine Rechnungen',
+  'bills.emptyHint':
+    'Beleg fotografieren, die KI liest die Posten, Freunde beanspruchen ohne Login.',
   'bills.taxPending': 'Steuersatz offen',
+  'bills.status.draft': 'Entwurf',
+  'bills.status.claiming': 'Beanspruchen',
+  'bills.status.locked': 'Gesperrt',
 
   'bill.upload': 'Rechnung hochladen (Bild oder PDF)',
   'bill.reupload': 'Rechnung neu erkennen (ersetzt KI-Zeilen)',
@@ -562,13 +682,13 @@ const de: Catalog = {
   'bill.vatA': 'MwSt. A',
   'bill.vatB': 'MwSt. B',
   'bill.gross': 'Brutto',
-  'bill.saveAndValidate': 'Summen speichern und prüfen',
+  'bill.saveAndValidate': 'Summen aktualisieren und neu prüfen',
   'bill.items': 'Positionen ({n})',
   'bill.addRow': '＋ Zeile manuell hinzufügen',
   'bill.newItem': 'Neue Position',
   'bill.families': 'Haushalte',
   'bill.noFamilies':
-    '⚠️ Noch keine Haushalte — wer den Teilen-Link öffnet, kann nichts beanspruchen. Bitte zuerst hinzufügen.',
+    'Noch keine Haushalte — wer den Teilen-Link öffnet, kann nichts beanspruchen. Bitte zuerst hinzufügen.',
   'bill.share': 'Zum Beanspruchen teilen',
   'bill.copyLink': 'Teilen-Link kopieren',
   'bill.shareHint':
@@ -582,6 +702,7 @@ const de: Catalog = {
     'Sobald alles beansprucht ist, erscheinen hier Übersicht und Sperr-Button.',
   'bill.parsing':
     'Erkennung läuft (mehrseitige Rechnungen dauern bis zu einer Minute)…',
+  'bill.processingTitle': 'KI verarbeitet deinen Beleg',
   'bill.parseTimeout':
     'Zeitüberschreitung bei der Erkennung — gleich neu laden oder erneut versuchen',
   'bill.savingTotals': 'Summen werden gespeichert…',
@@ -593,9 +714,23 @@ const de: Catalog = {
   'bill.removingFamily': 'Haushalt wird entfernt…',
   'bill.savingTax': 'Steuersatz wird gespeichert…',
   'bill.locking': 'Wird gesperrt…',
+  'stage.scan': 'Scannen',
+  'stage.review': 'Prüfen',
+  'stage.share': 'Teilen',
+  'stage.summary': 'Übersicht',
+  'stage.scanTitle': 'Beleg scannen',
+  'stage.scanHint':
+    'Beleg fotografieren oder hochladen — die KI liest jeden Posten.',
+  'stage.reviewDone': '{n} Positionen · {tax}',
+  'stage.shareDone': '{n} Haushalte hinzugefügt',
+  'bill.lockConfirmTitle': 'Diese Rechnung sperren?',
+  'bill.lockConfirmBody':
+    'Nach dem Sperren können Freunde ihre Ansprüche nicht mehr ändern und die Übersicht ist endgültig. Das lässt sich nicht rückgängig machen.',
+  'bill.lockConfirm': 'Sperren',
+  'bill.settled': 'Alles aufgeteilt',
 
-  'validate.ok': '✓ Stimmt mit den gedruckten Summen überein',
-  'validate.near': '✓ Nahezu gleich ({amount} € Differenz durch Rundung)',
+  'validate.ok': 'Stimmt mit den gedruckten Summen überein',
+  'validate.near': 'Nahezu gleich ({amount} € Differenz durch Rundung)',
   'validate.mismatch': 'Summen stimmen nicht — bitte Positionen prüfen:',
   'validate.netDiff': 'Differenz netto',
   'validate.vatADiff': 'Differenz MwSt. A',
@@ -617,6 +752,7 @@ const de: Catalog = {
     'Der Organisator schickt dir einen 5-stelligen Code; nur du siehst und beanspruchst deinen Anteil.',
   'claim.codePlaceholder': '5 Ziffern',
   'claim.enterBtn': 'Eintreten',
+  'claim.entering': 'Dein Anspruch wird geöffnet…',
   'claim.codeWrong':
     'Der Code stimmt nicht — bitte beim Organisator nachfragen.',
   'claim.youAre': 'Du bist „{name}“',
@@ -630,12 +766,17 @@ const de: Catalog = {
     'Bitte darum, alle unter „Haushalte“ auf der Rechnungsseite einzutragen, und lade diese Seite neu.',
   'claim.pickFamilyFirst':
     'Wähle zuerst deinen Haushalt und hake dann an, was du gekauft hast.',
-  'claim.photo': '📷 Per Foto beanspruchen (KI wählt vor)',
+  'claim.photo': 'Per Foto beanspruchen (KI wählt vor)',
   'claim.photoBusy': 'KI schaut nach…',
+  'claim.photoProcessingTitle': 'KI prüft dein Foto',
   'claim.photoHint':
     'Fotografiere, was du gekauft hast; die KI rät, welche Positionen dir gehören — du bestätigst.',
   'claim.photoFailed': 'Foto-Erkennung fehlgeschlagen: {error}',
   'claim.items': 'Positionen ({n})',
+  'claim.claimable': 'Zu beanspruchen ({n})',
+  'claim.sharedGroup': 'Von allen geteilt ({n})',
+  'claim.switchFamily': 'Wechseln',
+  'claim.othersUpdated': 'Jemand hat Ansprüche aktualisiert',
   'claim.chosen': '{kinds} Sorten gewählt / {units} Stück gesamt',
   'claim.estimated': 'Voraussichtlich {amount} €',
   'claim.exclTax': ' (ohne MwSt.)',
@@ -645,7 +786,7 @@ const de: Catalog = {
     'Der Steuersatz steht noch nicht fest, daher wird nur der Nettobetrag gezeigt; maßgeblich ist die gesperrte Übersicht.',
   'claim.submit': 'Meine Ansprüche absenden',
   'claim.submitting': 'Wird gesendet…',
-  'claim.submitted': '✓ Gesendet — jetzt für alle sichtbar',
+  'claim.submitted': 'Gesendet — jetzt für alle sichtbar',
   'claim.autoSync':
     'Ansprüche der anderen Haushalte werden alle 5 Sekunden aktualisiert.',
   'claim.conflict':
@@ -664,7 +805,7 @@ const de: Catalog = {
   'claim.maxQty': 'Höchstens {n} verfügbar',
 
   'suggest.warning':
-    '⚠️ Das sind Vermutungen der KI anhand deines Fotos und können falsch oder unvollständig sein — bitte einzeln prüfen.',
+    'Das sind Vermutungen der KI anhand deines Fotos und können falsch oder unvollständig sein — bitte einzeln prüfen.',
   'suggest.none':
     'Die KI hat keine Position dieser Rechnung erkannt. Versuche einen anderen Winkel oder hake unten manuell an.',
   'suggest.confirm': 'Auswahl beanspruchen ({n})',

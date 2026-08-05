@@ -1,8 +1,11 @@
 import { claimableUnits } from '@aabill/api-types';
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { milliToDecimal } from '../lib/format';
 import { t, useLang } from '../lib/use-lang';
+import { color, radius, space } from '../theme/tokens';
+import { Button, Text } from './ui';
+import { CheckSquare, Square, Warning } from './icons';
 import type { ItemView } from './ItemRow';
 
 /**
@@ -51,45 +54,54 @@ export function ClaimSuggestionReview({
 
   return (
     <View style={styles.panel}>
-      <Text style={styles.warn}>{t('suggest.warning')}</Text>
+      <View style={styles.warnLine}>
+        <Warning size={18} color={color.accentInk} />
+        <Text variant="label" style={[styles.warn, styles.flex]}>
+          {t('suggest.warning')}
+        </Text>
+      </View>
 
       {items.length === 0 ? (
-        <Text style={styles.empty}>{t('suggest.none')}</Text>
+        <Text variant="body" tone="muted" style={styles.empty}>
+          {t('suggest.none')}
+        </Text>
       ) : (
-        items.map((i) => (
-          <Pressable
-            key={i.id}
-            testID={`suggest-toggle-${i.id}`}
-            style={styles.row}
-            onPress={() => toggle(i.id)}
-          >
-            <Text style={selected.has(i.id) ? styles.boxOn : styles.boxOff}>
-              {selected.has(i.id) ? '☑' : '☐'}
-            </Text>
-            <View style={styles.flex}>
-              <Text style={styles.name}>{i.name}</Text>
-              <Text style={styles.sub}>
-                {i.nameTranslated ? `${i.nameTranslated} · ` : ''}
-                {describeQty(i)}
-              </Text>
-            </View>
-          </Pressable>
-        ))
+        items.map((i) => {
+          const on = selected.has(i.id);
+          return (
+            <Pressable
+              key={i.id}
+              testID={`suggest-toggle-${i.id}`}
+              style={styles.row}
+              onPress={() => toggle(i.id)}
+            >
+              {on ? (
+                <CheckSquare size={22} color={color.primary} />
+              ) : (
+                <Square size={22} color={color.inkFaint} />
+              )}
+              <View style={styles.flex}>
+                <Text variant="subhead" numberOfLines={1}>
+                  {i.name}
+                </Text>
+                <Text variant="muted" tone="muted">
+                  {i.nameTranslated ? `${i.nameTranslated} · ` : ''}
+                  {describeQty(i)}
+                </Text>
+              </View>
+            </Pressable>
+          );
+        })
       )}
 
       <View style={styles.actions}>
-        <Pressable style={styles.btn} onPress={onCancel}>
-          <Text>{t('common.cancel')}</Text>
-        </Pressable>
+        <Button label={t('common.cancel')} variant="ghost" onPress={onCancel} />
         {items.length > 0 && (
-          <Pressable
-            style={[styles.primary, chosen.length === 0 && styles.disabled]}
+          <Button
+            label={t('suggest.confirm', { n: chosen.length })}
             onPress={() => chosen.length > 0 && onConfirm(chosen)}
-          >
-            <Text style={styles.primaryText}>
-              {t('suggest.confirm', { n: chosen.length })}
-            </Text>
-          </Pressable>
+            disabled={chosen.length === 0}
+          />
         )}
       </View>
     </View>
@@ -99,42 +111,29 @@ export function ClaimSuggestionReview({
 const styles = StyleSheet.create({
   panel: {
     borderWidth: 1,
-    borderColor: '#f0c36d',
-    backgroundColor: '#fffbf0',
-    borderRadius: 8,
-    padding: 12,
-    gap: 6,
-    marginVertical: 8,
+    borderColor: color.accent,
+    backgroundColor: color.accentTint,
+    borderRadius: radius.md,
+    padding: space.md,
+    gap: space.sm,
   },
-  warn: { color: '#8a6d00', fontWeight: '600' },
-  empty: { color: '#666', paddingVertical: 8 },
+  warnLine: { flexDirection: 'row', gap: space.sm, alignItems: 'flex-start' },
+  warn: { color: color.accentInk },
+  empty: { paddingVertical: space.sm },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingVertical: 6,
+    gap: space.sm,
+    paddingVertical: space.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderColor: '#eadfc0',
+    borderColor: 'rgba(122,82,0,0.2)',
   },
   flex: { flex: 1 },
-  boxOn: { fontSize: 20, color: '#0a7' },
-  boxOff: { fontSize: 20, color: '#999' },
-  name: { fontWeight: '600' },
-  sub: { color: '#666', fontSize: 12 },
   actions: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',
-    gap: 12,
-    marginTop: 6,
+    gap: space.sm,
+    marginTop: space.xs,
   },
-  btn: { padding: 8 },
-  primary: {
-    backgroundColor: '#0a7',
-    borderRadius: 6,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  disabled: { opacity: 0.4 },
-  primaryText: { color: '#fff', fontWeight: '600' },
 });

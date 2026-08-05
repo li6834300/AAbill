@@ -1,15 +1,11 @@
 import { itemNetCents, toMilli } from '@aabill/core';
 import React, { useState } from 'react';
-import {
-  Pressable,
-  StyleSheet,
-  Switch,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
-import { centsToEuro, milliToDecimal } from '../lib/format';
+import { Pressable, StyleSheet, Switch, View } from 'react-native';
+import { milliToDecimal } from '../lib/format';
 import { useLang } from '../lib/use-lang';
+import { color, space } from '../theme/tokens';
+import { Input, Money, Text } from './ui';
+import { Sparkle } from './icons';
 
 export interface ItemView {
   id: string;
@@ -86,42 +82,46 @@ export function ItemRow({
   if (editing) {
     return (
       <View style={styles.row}>
-        <TextInput
+        <Input
           testID="edit-name"
-          style={styles.input}
           value={name}
           onChangeText={setName}
           placeholder={t('item.name')}
         />
-        <TextInput
+        <Input
           testID="edit-nameTranslated"
-          style={styles.input}
           value={nameTranslated}
           onChangeText={setNameZh}
           placeholder={t('item.nameTranslated')}
         />
         <View style={styles.line}>
-          <TextInput
+          <Input
             testID="edit-qty"
-            style={[styles.input, styles.flex]}
+            style={styles.flex}
             value={qtyText}
             onChangeText={setQtyText}
             placeholder={t('item.qty')}
+            numeric
           />
-          <TextInput
+          <Input
             testID="edit-price"
-            style={[styles.input, styles.flex]}
+            style={styles.flex}
             value={priceText}
             onChangeText={setPriceText}
             placeholder={t('item.unitPrice')}
+            numeric
           />
         </View>
-        <View style={styles.line}>
-          <Pressable onPress={save} style={styles.btn}>
-            <Text style={styles.btnText}>{t('common.save')}</Text>
+        <View style={styles.actions}>
+          <Pressable onPress={() => setEditing(false)} style={styles.action}>
+            <Text variant="label" tone="muted">
+              {t('common.cancel')}
+            </Text>
           </Pressable>
-          <Pressable onPress={() => setEditing(false)} style={styles.btn}>
-            <Text>{t('common.cancel')}</Text>
+          <Pressable onPress={save} style={styles.action}>
+            <Text variant="label" tone="primary">
+              {t('common.save')}
+            </Text>
           </Pressable>
         </View>
       </View>
@@ -132,31 +132,45 @@ export function ItemRow({
     <View style={styles.row}>
       <View style={styles.line}>
         <View style={styles.flex}>
-          <Text style={styles.name}>{item.name}</Text>
-          <Text style={styles.sub}>
+          <View style={styles.nameLine}>
+            <Text variant="subhead" numberOfLines={1} style={styles.name}>
+              {item.name}
+            </Text>
+            {item.source === 'ai' && (
+              <Sparkle size={14} color={color.sunbeam} />
+            )}
+          </View>
+          <Text variant="muted" tone="muted">
             {item.nameTranslated ? `${item.nameTranslated} · ` : ''}
             {milliToDecimal(item.qtyMilli)} {item.unit} ×{' '}
             {milliToDecimal(item.unitPriceMilli)} € ·{' '}
             {t('item.taxClass', { cls: item.taxClass })}
-            {item.source === 'ai' ? ' · AI' : ''}
           </Text>
         </View>
-        <Text style={styles.amount}>{centsToEuro(lineNet)} €</Text>
+        <Money cents={lineNet} tone="strong" />
       </View>
       <View style={styles.line}>
         <View style={[styles.line, styles.flex]}>
-          <Text style={styles.sub}>{t('item.shared')}</Text>
+          <Text variant="muted" tone="muted">
+            {t('item.shared')}
+          </Text>
           <Switch
             testID="shared-switch"
             value={item.isShared}
             onValueChange={(v) => onPatch({ isShared: v })}
+            trackColor={{ false: color.border, true: color.primary }}
+            thumbColor={color.surface}
           />
         </View>
-        <Pressable onPress={() => setEditing(true)} style={styles.btn}>
-          <Text>{t('common.edit')}</Text>
+        <Pressable onPress={() => setEditing(true)} style={styles.action}>
+          <Text variant="label" tone="muted">
+            {t('common.edit')}
+          </Text>
         </Pressable>
-        <Pressable onPress={onDelete} style={styles.btn}>
-          <Text style={styles.danger}>{t('common.delete')}</Text>
+        <Pressable onPress={onDelete} style={styles.action}>
+          <Text variant="label" tone="danger">
+            {t('common.delete')}
+          </Text>
         </Pressable>
       </View>
     </View>
@@ -166,23 +180,14 @@ export function ItemRow({
 const styles = StyleSheet.create({
   row: {
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderColor: '#ddd',
-    paddingVertical: 8,
-    gap: 4,
+    borderColor: color.hairline,
+    paddingVertical: space.md,
+    gap: space.sm,
   },
-  line: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  line: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
+  nameLine: { flexDirection: 'row', alignItems: 'center', gap: space.xs },
+  name: { flexShrink: 1 },
   flex: { flex: 1 },
-  name: { fontWeight: '600' },
-  sub: { color: '#666', fontSize: 12 },
-  amount: { fontWeight: '600' },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 6,
-    padding: 8,
-    marginVertical: 2,
-  },
-  btn: { padding: 8 },
-  btnText: { color: '#0a7', fontWeight: '600' },
-  danger: { color: '#b42318' },
+  actions: { flexDirection: 'row', justifyContent: 'flex-end', gap: space.xs },
+  action: { paddingHorizontal: space.sm, paddingVertical: space.xs },
 });

@@ -1,28 +1,40 @@
-import {
-  claimableUnits,
-  type FamilyClaimView,
-  type ShareSummary,
-} from '@aabill/api-types';
-import { vatCents } from '@aabill/core';
+import { type FamilyClaimView, type ShareSummary } from '@aabill/api-types';
 import { useLocalSearchParams } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
-  Text,
-  TextInput,
   View,
 } from 'react-native';
 import { ClaimItemRow } from '../../components/ClaimItemRow';
 import { ClaimSuggestionReview } from '../../components/ClaimSuggestionReview';
 import { LanguagePicker } from '../../components/LanguagePicker';
 import { api, type ClaimConflict } from '../../lib/api';
-import { centsToEuro } from '../../lib/format';
+import { claimTotals } from '../../lib/claim-total';
+import { hasClaimChanges } from '../../lib/claim-draft';
+import { BlockingWaitOverlay } from '../../components/BlockingWaitOverlay';
 import { useLang } from '../../lib/use-lang';
 import { pickInvoice } from '../../lib/pick-invoice';
+import { color, radius, space } from '../../theme/tokens';
+import {
+  Avatar,
+  Banner,
+  Button,
+  Card,
+  Input,
+  Money,
+  Screen,
+  StickyBar,
+  Text,
+  Toast,
+} from '../../components/ui';
+import { Camera, Lock } from '../../components/icons';
+import { ReceiptMascot } from '../../components/characters/ReceiptMascot';
 
 const POLL_MS = 5000;
+const BAR_HEIGHT = 96;
 
 /** 记住某账单的口令,刷新不用重输(web 持久化;原生仅内存,失败静默) */
 const codeKey = (token: string) => `aabill_code_${token}`;
@@ -45,15 +57,24 @@ const writeCode = (token: string, code: string | null) => {
   }
 };
 
+/** 该家的稳定色号:participant 只拿到自己家 {id,name},用 id 派生一个稳定色 */
+const familyColorIndex = (id: string) =>
+  [...id].reduce((s, c) => s + c.charCodeAt(0), 0);
+
+const remainingSum = (v: FamilyClaimView) =>
+  v.items.reduce((s, i) => s + i.remaining, 0);
+
 /**
  * PRD C1-C4 + Beta:Participant 免登录认领页(/b/{share_token})。
  * 每家一个 5 位口令:输入自己那家的口令后,只能看/改自己那份,并看到每件"还剩几件可领"。
- * 认领是**本地选择 + 一次提交**:每点一次就发请求延迟太高;底部实时算钱,确认后批量提交。
+ * 认领是**本地选择 + 一次提交**:底部实时算钱,确认后批量提交。
  */
 export default function ClaimScreen() {
   const { t } = useLang();
   const { token } = useLocalSearchParams<{ token: string }>();
   const [summary, setSummary] = useState<ShareSummary | null>(null);
+  const [loadingSummary, setLoadingSummary] = useState(true);
+  const [entering, setEntering] = useState(false);
   const [view, setView] = useState<FamilyClaimView | null>(null);
   const [code, setCode] = useState<string | null>(null);
   const [codeInput, setCodeInput] = useState('');
@@ -66,19 +87,58 @@ export default function ClaimScreen() {
   const [conflicts, setConflicts] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [savedAt, setSavedAt] = useState<number | null>(null);
+  const [sharedOpen, setSharedOpen] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+  // 轮询对比"总剩余量",变少了说明别家刚认领 → 轻提示
+  const remainingRef = useRef<number | null>(null);
+
+  /** 凭口令进入自己那家;initDraft=true 用服务端已有认领初始化草稿;showWaiting 控制阻断层 */
+  const enterWith = useCallback(
+    async (c: string, initDraft = true, showWaiting = true) => {
+      if (!token) return;
+      if (showWaiting) setEntering(true);
+      try {
+        const v = await api.enterFamily(token, c);
+        setView(v);
+        setCode(c);
+        writeCode(token, c);
+        setError(null);
+        remainingRef.current = remainingSum(v);
+        if (initDraft) {
+          const mine: Record<string, number> = {};
+          for (const i of v.items)
+            if (i.myPortion > 0) mine[i.id] = i.myPortion;
+          setDraft(mine);
+          setConflicts({});
+          setSavedAt(null);
+        }
+      } catch {
+        setError(t('claim.codeWrong'));
+      } finally {
+        if (showWaiting) setEntering(false);
+      }
+    },
+    [token, t],
+  );
 
   /** 轮询刷新 scoped 视图(不碰本地草稿:用户正在改的不能被覆盖) */
   const refreshView = useCallback(
     async (c: string) => {
       if (!token) return;
       try {
-        setView(await api.enterFamily(token, c));
+        const v = await api.enterFamily(token, c);
+        const sum = remainingSum(v);
+        if (remainingRef.current !== null && sum < remainingRef.current) {
+          setToast(t('claim.othersUpdated'));
+        }
+        remainingRef.current = sum;
+        setView(v);
         setError(null);
       } catch {
         // 轮询失败静默(可能锁定或网络抖动),不打断用户
       }
     },
-    [token],
+    [token, t],
   );
 
   // 首屏:拿最小 summary;若本地存过口令,自动进入
@@ -91,15 +151,17 @@ export default function ClaimScreen() {
         if (!alive) return;
         setSummary(s);
         const saved = readCode(token);
-        if (saved) await enterWith(saved, false);
+        if (saved) await enterWith(saved, true, false);
       } catch (e) {
         if (alive) setError(String(e));
+      } finally {
+        if (alive) setLoadingSummary(false);
       }
     })();
     return () => {
       alive = false;
     };
-  }, [token]);
+  }, [token, enterWith]);
 
   // 进入后定时刷新剩余量
   useEffect(() => {
@@ -107,27 +169,6 @@ export default function ClaimScreen() {
     const timer = setInterval(() => void refreshView(code), POLL_MS);
     return () => clearInterval(timer);
   }, [code, refreshView]);
-
-  /** 输入口令进入自己那家;initDraft=true 时用服务端已有认领初始化本地草稿 */
-  const enterWith = async (c: string, initDraft = true) => {
-    if (!token) return;
-    try {
-      const v = await api.enterFamily(token, c);
-      setView(v);
-      setCode(c);
-      writeCode(token, c);
-      setError(null);
-      if (initDraft) {
-        const mine: Record<string, number> = {};
-        for (const i of v.items) if (i.myPortion > 0) mine[i.id] = i.myPortion;
-        setDraft(mine);
-        setConflicts({});
-        setSavedAt(null);
-      }
-    } catch {
-      setError(t('claim.codeWrong'));
-    }
-  };
 
   const switchCode = () => {
     if (token) writeCode(token, null);
@@ -137,6 +178,7 @@ export default function ClaimScreen() {
     setDraft({});
     setConflicts({});
     setSavedAt(null);
+    remainingRef.current = null;
   };
 
   const setPortion = (itemId: string, portion: number) => {
@@ -149,24 +191,33 @@ export default function ClaimScreen() {
     setSavedAt(null);
   };
 
-  // ---- 输入口令前:最小首屏 ----
+  // ── 输入口令前:最小首屏(口令门)──
   if (!view) {
     return (
-      <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-        <Text style={styles.title}>
+      <Screen scroll>
+        <Text variant="display" latin numberOfLines={2}>
           {summary?.title ?? t('common.loading')}
         </Text>
         <LanguagePicker />
         {summary && !summary.hasFamilies ? (
-          <View style={styles.noticeBox}>
-            <Text style={styles.noticeText}>{t('claim.noFamilies')}</Text>
-            <Text style={styles.hint}>{t('claim.noFamiliesHint')}</Text>
-          </View>
+          <Banner tone="warning">
+            <Text variant="label" style={{ color: color.accentInk }}>
+              {t('claim.noFamilies')}
+            </Text>
+            <Text variant="muted" tone="muted">
+              {t('claim.noFamiliesHint')}
+            </Text>
+          </Banner>
         ) : (
-          <>
-            <Text style={styles.section}>{t('claim.enterTitle')}</Text>
-            <Text style={styles.hint}>{t('claim.enterHint')}</Text>
-            <TextInput
+          <Card style={styles.codeCard}>
+            <ReceiptMascot size={92} />
+            <Text variant="heading" tone="display" style={styles.center}>
+              {t('claim.enterTitle')}
+            </Text>
+            <Text variant="muted" tone="muted" style={styles.center}>
+              {t('claim.enterHint')}
+            </Text>
+            <Input
               testID="code-input"
               style={styles.codeInput}
               value={codeInput}
@@ -176,56 +227,43 @@ export default function ClaimScreen() {
               placeholder={t('claim.codePlaceholder')}
               keyboardType="number-pad"
               maxLength={5}
+              onSubmitEditing={() =>
+                codeInput.length === 5 && void enterWith(codeInput)
+              }
             />
-            {error && <Text style={styles.error}>{error}</Text>}
-            <Pressable
+            {error && (
+              <Text variant="body" tone="danger" style={styles.center}>
+                {error}
+              </Text>
+            )}
+            <Button
               testID="enter-btn"
-              style={[
-                styles.submitBtn,
-                codeInput.length !== 5 && styles.disabled,
-              ]}
-              disabled={codeInput.length !== 5}
+              label={t('claim.enterBtn')}
               onPress={() => void enterWith(codeInput)}
-            >
-              <Text style={styles.submitText}>{t('claim.enterBtn')}</Text>
-            </Pressable>
-          </>
+              disabled={codeInput.length !== 5}
+              fullWidth
+            />
+          </Card>
         )}
-      </ScrollView>
+        <BlockingWaitOverlay
+          visible={loadingSummary || entering}
+          title={t('common.waitTitle')}
+          message={entering ? t('claim.entering') : t('common.loading')}
+        />
+      </Screen>
     );
   }
 
-  // ---- 已进入自己那家 ----
+  // ── 已进入自己那家 ──
   const locked = view.status === 'locked';
   const rates = view.taxRates;
-  const othersPortions = (claimable: number, remaining: number) =>
-    claimable - remaining;
-
-  const perCents = (i: FamilyClaimView['items'][number]) => {
-    const isWeight =
-      claimableUnits(i.qtyMilli) === 1 && i.qtyMilli % 1000 !== 0;
-    return isWeight
-      ? Math.round((i.qtyMilli * i.unitPriceMilli) / 10000)
-      : Math.round(i.unitPriceMilli / 10);
-  };
+  const claimable = view.items.filter((i) => !i.isShared);
+  const shared = view.items.filter((i) => i.isShared);
+  const totals = claimTotals(view.items, draft, rates);
   const chosen = view.items.filter(
     (i) => !i.isShared && (draft[i.id] ?? 0) > 0,
   );
-  const netCents = chosen.reduce(
-    (s, i) => s + (draft[i.id] ?? 0) * perCents(i),
-    0,
-  );
-  const grossCents =
-    netCents +
-    (rates
-      ? chosen.reduce(
-          (s, i) =>
-            s + vatCents((draft[i.id] ?? 0) * perCents(i), rates[i.taxClass]),
-          0,
-        )
-      : 0);
-  const chosenUnits = chosen.reduce((s, i) => s + (draft[i.id] ?? 0), 0);
-  const dirty = Object.values(draft).some((n) => n > 0) || chosen.length > 0;
+  const dirty = hasClaimChanges(view.items, draft);
 
   const submit = async () => {
     if (!code) return;
@@ -261,6 +299,7 @@ export default function ClaimScreen() {
   };
 
   const photoSuggest = async () => {
+    if (!code) return;
     const picked = await pickInvoice();
     if (!picked) return;
     setSuggesting(true);
@@ -268,7 +307,7 @@ export default function ClaimScreen() {
     try {
       const { suggestedItemIds } = await api.suggestClaims(
         token!,
-        code!,
+        code,
         picked.base64,
         picked.mimeType,
       );
@@ -290,151 +329,191 @@ export default function ClaimScreen() {
   };
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>{view.billTitle}</Text>
-      {locked && (
-        <View style={styles.lockedBanner}>
-          <Text style={styles.lockedText}>{t('claim.lockedNotice')}</Text>
-        </View>
-      )}
-      {error && <Text style={styles.error}>{error}</Text>}
-
-      <LanguagePicker />
-
-      <View style={styles.familyRow}>
-        <Text style={styles.section}>
-          {t('claim.youAre', { name: view.family.name })}
-        </Text>
-        <Pressable testID="switch-code" onPress={switchCode}>
-          <Text style={styles.switchCode}>{t('claim.switchCode')}</Text>
-        </Pressable>
-      </View>
-
-      {!locked && (
-        <>
-          <Pressable
-            style={styles.photoBtn}
-            onPress={() => void photoSuggest()}
-            disabled={suggesting}
-          >
-            <Text style={styles.photoBtnText}>
-              {suggesting ? t('claim.photoBusy') : t('claim.photo')}
-            </Text>
-          </Pressable>
-          <Text style={styles.hint}>{t('claim.photoHint')}</Text>
-        </>
-      )}
-
-      {suggestedIds !== null && (
-        <ClaimSuggestionReview
-          items={view.items.filter((i) => suggestedIds.includes(i.id))}
-          onConfirm={confirmSuggested}
-          onCancel={() => setSuggestedIds(null)}
-        />
-      )}
-
-      <Text style={styles.section}>
-        {t('claim.items', { n: view.items.length })}
-      </Text>
-      {view.items.map((item) => (
-        <ClaimItemRow
-          key={item.id}
-          item={item}
-          myPortion={draft[item.id] ?? 0}
-          othersPortions={othersPortions(item.claimable, item.remaining)}
-          locked={locked}
-          {...(conflicts[item.id] ? { conflict: conflicts[item.id] } : {})}
-          onChange={(portion) => setPortion(item.id, portion)}
-        />
-      ))}
-
-      {!locked && (
-        <View style={styles.summary}>
-          <Text style={styles.summaryLine}>
-            {t('claim.chosen', { kinds: chosen.length, units: chosenUnits })}
+    <View style={styles.root}>
+      <Toast message={toast} />
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <Screen scroll bottomInset={!locked ? BAR_HEIGHT : 0}>
+          <Text variant="display" latin numberOfLines={2}>
+            {view.billTitle}
           </Text>
-          <Text style={styles.summaryTotal}>
-            {t('claim.estimated', { amount: centsToEuro(grossCents) })}
-            {rates ? '' : t('claim.exclTax')}
-          </Text>
-          <Text style={styles.hint}>
-            {rates
-              ? t('claim.netPlusTax', { amount: centsToEuro(netCents) })
-              : t('claim.noTaxYet')}
-          </Text>
-          <Pressable
-            style={[styles.submitBtn, submitting && styles.disabled]}
-            onPress={() => void submit()}
-            disabled={submitting || !dirty}
-          >
-            <Text style={styles.submitText}>
-              {submitting ? t('claim.submitting') : t('claim.submit')}
-            </Text>
-          </Pressable>
-          {savedAt !== null && (
-            <Text style={styles.saved}>{t('claim.submitted')}</Text>
+
+          {locked && (
+            <Banner tone="warning" icon={false}>
+              <View style={styles.lockedLine}>
+                <Lock size={18} color={color.accentInk} />
+                <Text variant="label" style={{ color: color.accentInk }}>
+                  {t('claim.lockedNotice')}
+                </Text>
+              </View>
+            </Banner>
           )}
-        </View>
-      )}
+          {error && (
+            <Text variant="body" tone="danger">
+              {error}
+            </Text>
+          )}
 
-      <Text style={styles.hint}>{t('claim.autoSync')}</Text>
-    </ScrollView>
+          <LanguagePicker />
+
+          <View style={styles.familyHeader}>
+            <Avatar
+              name={view.family.name}
+              index={familyColorIndex(view.family.id)}
+              size={28}
+              face
+            />
+            <Text variant="subhead" style={styles.flex}>
+              {t('claim.youAre', { name: view.family.name })}
+            </Text>
+            <Button
+              testID="switch-code"
+              label={t('claim.switchCode')}
+              variant="ghost"
+              onPress={switchCode}
+            />
+          </View>
+
+          {!locked && (
+            <>
+              <Button
+                label={suggesting ? t('claim.photoBusy') : t('claim.photo')}
+                variant="secondary"
+                icon={Camera}
+                onPress={() => void photoSuggest()}
+                disabled={suggesting}
+                fullWidth
+              />
+              <Text variant="muted" tone="faint">
+                {t('claim.photoHint')}
+              </Text>
+            </>
+          )}
+
+          {suggestedIds !== null && (
+            <ClaimSuggestionReview
+              items={view.items.filter((i) => suggestedIds.includes(i.id))}
+              onConfirm={confirmSuggested}
+              onCancel={() => setSuggestedIds(null)}
+            />
+          )}
+
+          <Text variant="heading" tone="display" style={styles.sectionHead}>
+            {t('claim.claimable', { n: claimable.length })}
+          </Text>
+          {claimable.map((item) => (
+            <ClaimItemRow
+              key={item.id}
+              item={item}
+              myPortion={draft[item.id] ?? 0}
+              othersPortions={item.claimable - item.remaining}
+              locked={locked}
+              {...(conflicts[item.id] ? { conflict: conflicts[item.id] } : {})}
+              onChange={(portion) => setPortion(item.id, portion)}
+            />
+          ))}
+
+          {shared.length > 0 && (
+            <Card tone="sunk" style={styles.sharedCard}>
+              <Pressable
+                onPress={() => setSharedOpen((v) => !v)}
+                style={styles.sharedHead}
+              >
+                <Text variant="label" tone="muted" style={styles.flex}>
+                  {t('claim.sharedGroup', { n: shared.length })}
+                </Text>
+                <Text variant="muted" tone="faint">
+                  {sharedOpen ? '−' : '+'}
+                </Text>
+              </Pressable>
+              {sharedOpen &&
+                shared.map((i) => (
+                  <Text key={i.id} variant="muted" tone="muted">
+                    {i.name}
+                    {i.nameTranslated ? ` · ${i.nameTranslated}` : ''}
+                  </Text>
+                ))}
+            </Card>
+          )}
+
+          <Text variant="muted" tone="faint" style={styles.autoSync}>
+            {t('claim.autoSync')}
+          </Text>
+        </Screen>
+
+        {!locked && (
+          <StickyBar>
+            <View style={styles.flex}>
+              <Text variant="muted" tone="muted">
+                {t('claim.chosen', {
+                  kinds: chosen.length,
+                  units: totals.units,
+                })}
+              </Text>
+              <View style={styles.barMoney}>
+                <Money cents={totals.grossCents} size="lg" tone="strong" />
+                {!rates && (
+                  <Text variant="muted" tone="faint">
+                    {t('claim.exclTax')}
+                  </Text>
+                )}
+              </View>
+              {savedAt !== null && (
+                <Text variant="muted" tone="primary">
+                  {t('claim.submitted')}
+                </Text>
+              )}
+            </View>
+            <Button
+              testID="submit-claims"
+              label={submitting ? t('claim.submitting') : t('claim.submit')}
+              onPress={() => void submit()}
+              disabled={submitting || !dirty}
+              loading={submitting}
+            />
+          </StickyBar>
+        )}
+      </KeyboardAvoidingView>
+
+      {/* 提交 / 拍照识别时的阻断层(拍照用 AI 醒目变体) */}
+      <BlockingWaitOverlay
+        visible={submitting || suggesting}
+        variant={suggesting ? 'ai' : 'waiting'}
+        title={
+          suggesting ? t('claim.photoProcessingTitle') : t('common.waitTitle')
+        }
+        message={suggesting ? t('claim.photoBusy') : t('claim.submitting')}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#fff' },
-  content: { padding: 16, gap: 8, paddingBottom: 48 },
-  title: { fontSize: 18, fontWeight: '700' },
-  section: { marginTop: 12, fontWeight: '600', color: '#333' },
-  familyRow: {
-    marginTop: 12,
+  root: { flex: 1, backgroundColor: color.canvas },
+  flex: { flex: 1 },
+  center: { textAlign: 'center' },
+  codeCard: { alignItems: 'center', gap: space.md },
+  codeInput: {
+    fontSize: 28,
+    textAlign: 'center',
+    letterSpacing: 8,
+    alignSelf: 'stretch',
+  },
+  lockedLine: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
+  familyHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: space.md,
+    backgroundColor: color.primaryTint,
+    borderRadius: radius.md,
+    paddingHorizontal: space.md,
+    paddingVertical: space.sm,
   },
-  switchCode: { color: '#1f6feb', fontSize: 12, fontWeight: '600' },
-  codeInput: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 20,
-    letterSpacing: 6,
-    textAlign: 'center',
-    marginTop: 8,
-  },
-  hint: { color: '#999', fontSize: 12, marginTop: 8 },
-  error: { color: '#b42318' },
-  lockedBanner: { backgroundColor: '#fff4e5', borderRadius: 8, padding: 12 },
-  lockedText: { color: '#8a6d00', fontWeight: '600' },
-  noticeBox: { backgroundColor: '#fff4e5', borderRadius: 8, padding: 12 },
-  noticeText: { color: '#8a6d00', fontWeight: '600' },
-  photoBtn: {
-    backgroundColor: '#0a7',
-    borderRadius: 8,
-    padding: 12,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  photoBtnText: { color: '#fff', fontWeight: '600' },
-  summary: {
-    marginTop: 16,
-    padding: 12,
-    borderRadius: 8,
-    backgroundColor: '#f6f8fa',
-    gap: 4,
-  },
-  summaryLine: { color: '#333' },
-  summaryTotal: { fontSize: 20, fontWeight: '700' },
-  submitBtn: {
-    backgroundColor: '#0a7',
-    borderRadius: 8,
-    padding: 14,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  disabled: { opacity: 0.5 },
-  submitText: { color: '#fff', fontWeight: '700' },
-  saved: { color: '#1a7f1a', fontWeight: '600', marginTop: 4 },
+  sectionHead: { marginTop: space.sm },
+  sharedCard: { gap: space.sm },
+  sharedHead: { flexDirection: 'row', alignItems: 'center' },
+  autoSync: { marginTop: space.sm, textAlign: 'center' },
+  barMoney: { flexDirection: 'row', alignItems: 'baseline', gap: space.sm },
 });

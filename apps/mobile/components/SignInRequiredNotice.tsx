@@ -1,6 +1,8 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useLang } from '../lib/use-lang';
+import { space } from '../theme/tokens';
+import { Banner, Button, Screen, Text } from './ui';
 
 /**
  * 未登录打开 owner 管理页(/bill/[id])时的引导。
@@ -13,28 +15,29 @@ import { useLang } from '../lib/use-lang';
 export function SignInRequiredNotice({ onSignIn }: { onSignIn: () => void }) {
   const { t } = useLang();
   return (
-    <View testID="signin-required-notice" style={styles.box}>
-      <Text style={styles.title}>{t('signin.title')}</Text>
-      <Text style={styles.hint}>{t('signin.ownerHint')}</Text>
-      <Text style={styles.hint}>{t('signin.claimerHint')}</Text>
-      <Pressable testID="goto-signin" style={styles.btn} onPress={onSignIn}>
-        <Text style={styles.btnText}>{t('signin.action')}</Text>
-      </Pressable>
-    </View>
+    <Screen gap={space.lg} testID="signin-required-notice">
+      <Text variant="heading" tone="display">
+        {t('signin.title')}
+      </Text>
+      <Text variant="body" tone="muted">
+        {t('signin.ownerHint')}
+      </Text>
+      <Banner tone="info">
+        <Text variant="body" tone="muted">
+          {t('signin.claimerHint')}
+        </Text>
+      </Banner>
+      <View style={styles.actions}>
+        <Button
+          testID="goto-signin"
+          label={t('signin.action')}
+          onPress={onSignIn}
+        />
+      </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  box: { flex: 1, backgroundColor: '#fff', padding: 20, gap: 10 },
-  title: { fontSize: 18, fontWeight: '600' },
-  hint: { color: '#555', fontSize: 14, lineHeight: 20 },
-  btn: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#0a7',
-    borderRadius: 6,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    marginTop: 4,
-  },
-  btnText: { color: '#fff', fontWeight: '600' },
+  actions: { alignItems: 'flex-start' },
 });
