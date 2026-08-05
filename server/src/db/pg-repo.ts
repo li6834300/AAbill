@@ -31,7 +31,7 @@ export function createPostgresRepo(pool: Pool): BillRepo {
   }> {
     const [families, items, claims] = await Promise.all([
       pool.query(
-        'select id, name, sort_order from families where bill_id = $1 order by sort_order',
+        'select id, name, sort_order, access_code from families where bill_id = $1 order by sort_order',
         [billId],
       ),
       pool.query('select * from items where bill_id = $1 order by position', [
@@ -47,6 +47,7 @@ export function createPostgresRepo(pool: Pool): BillRepo {
         id: r.id as string,
         name: r.name as string,
         sortOrder: r.sort_order as number,
+        accessCode: r.access_code as string,
       })),
       items: items.rows.map((r): Item => ({
         id: r.id as string,
@@ -109,8 +110,8 @@ export function createPostgresRepo(pool: Pool): BillRepo {
     await client.query('delete from families where bill_id = $1', [bill.id]);
     for (const f of bill.families) {
       await client.query(
-        'insert into families (id, bill_id, name, sort_order) values ($1, $2, $3, $4)',
-        [f.id, bill.id, f.name, f.sortOrder],
+        'insert into families (id, bill_id, name, sort_order, access_code) values ($1, $2, $3, $4, $5)',
+        [f.id, bill.id, f.name, f.sortOrder, f.accessCode],
       );
     }
     for (const [position, i] of bill.items.entries()) {

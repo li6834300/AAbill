@@ -1,9 +1,11 @@
 import type { Bill } from '@aabill/api-types';
 import { toMilli } from '@aabill/core';
 import * as Clipboard from 'expo-clipboard';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Linking, Pressable, StyleSheet, View } from 'react-native';
+import { getToken } from '../../lib/auth';
+import { SignInRequiredNotice } from '../../components/SignInRequiredNotice';
 import { FamilyChips } from '../../components/FamilyChips';
 import { ItemRow, type ItemPatch } from '../../components/ItemRow';
 import {
@@ -76,6 +78,7 @@ function furthestStage(bill: Bill, validation: ValidateResponse | null): Stage {
 /** PRD M3:Owner 端闭环 —— 按阶段推进:扫发票 → 校对 → 分享 → 汇总。 */
 export default function BillScreen() {
   const { t, lang } = useLang();
+  const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [bill, setBill] = useState<Bill | null>(null);
   const [validation, setValidation] = useState<ValidateResponse | null>(null);
@@ -187,6 +190,11 @@ export default function BillScreen() {
         isShared: false,
       }),
     );
+
+  // 未登录打开管理页(常见:把 /bill/id 当分享链接发出去)→ 引导,而非突兀 401
+  if (!getToken()) {
+    return <SignInRequiredNotice onSignIn={() => router.replace('/')} />;
+  }
 
   if (!bill) {
     return (
@@ -420,6 +428,7 @@ export default function BillScreen() {
               onRemove={(fid) =>
                 run(t('bill.removingFamily'), () => api.removeFamily(id!, fid))
               }
+              onCopyCode={(code) => void Clipboard.setStringAsync(code)}
             />
 
             <Text variant="heading" tone="display" style={styles.sectionHead}>

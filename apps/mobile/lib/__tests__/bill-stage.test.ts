@@ -61,7 +61,7 @@ describe('billStage', () => {
       ...base,
       items: [item('a'), item('b')],
       printedTotals: totals,
-      families: [{ id: 'f1', name: 'Rio', sortOrder: 0 }],
+      families: [{ id: 'f1', name: 'Rio', sortOrder: 0, accessCode: '00001' }],
       claims: [
         {
           id: 'c1',
@@ -80,7 +80,7 @@ describe('billStage', () => {
       ...base,
       items: [item('a'), item('shared', true)],
       printedTotals: totals,
-      families: [{ id: 'f1', name: 'Rio', sortOrder: 0 }],
+      families: [{ id: 'f1', name: 'Rio', sortOrder: 0, accessCode: '00001' }],
       claims: [
         {
           id: 'c1',

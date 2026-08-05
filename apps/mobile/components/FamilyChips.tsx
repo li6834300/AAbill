@@ -1,24 +1,32 @@
 import React, { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { useLang } from '../lib/use-lang';
-import { space } from '../theme/tokens';
-import { Avatar, Button, Chip, Input } from './ui';
+import { color, fontFamily, radius, space } from '../theme/tokens';
+import { Avatar, Button, Input, Text } from './ui';
+import { Close, Copy } from './icons';
 
 export interface FamilyView {
   id: string;
   name: string;
   sortOrder: number;
+  /** 该家 5 位认领口令(owner 视角才有) */
+  accessCode: string;
 }
 
-/** PRD B2:参与分账的家庭,用真实名字。每家一个稳定的身份色头像。 */
+/**
+ * PRD B2:参与分账的家庭,用真实名字。每家一个稳定的身份色头像。
+ * Beta:每家列出其 5 位认领口令 + 复制按钮 —— owner 把对应口令发给对应的人。
+ */
 export function FamilyChips({
   families,
   onAdd,
   onRemove,
+  onCopyCode,
 }: {
   families: FamilyView[];
   onAdd: (name: string) => void;
   onRemove: (id: string) => void;
+  onCopyCode?: (code: string) => void;
 }) {
   const { t } = useLang();
   const [name, setName] = useState('');
@@ -31,15 +39,34 @@ export function FamilyChips({
   return (
     <View style={styles.wrap}>
       {families.length > 0 && (
-        <View style={styles.chips}>
+        <View style={styles.list}>
           {families.map((f, i) => (
-            <Chip
-              key={f.id}
-              label={f.name}
-              leading={<Avatar name={f.name} index={i} size={22} />}
-              onRemove={() => onRemove(f.id)}
-              removeTestID={`remove-family-${f.id}`}
-            />
+            <View key={f.id} style={styles.row}>
+              <Avatar name={f.name} index={i} size={26} />
+              <Text variant="label" numberOfLines={1} style={styles.flex}>
+                {f.name}
+              </Text>
+              <Text style={styles.code}>{f.accessCode}</Text>
+              <Pressable
+                testID={`copy-code-${f.id}`}
+                onPress={() => onCopyCode?.(f.accessCode)}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel={t('family.copyCode')}
+                style={styles.iconBtn}
+              >
+                <Copy size={18} color={color.primary} />
+              </Pressable>
+              <Pressable
+                testID={`remove-family-${f.id}`}
+                onPress={() => onRemove(f.id)}
+                hitSlop={8}
+                accessibilityRole="button"
+                style={styles.iconBtn}
+              >
+                <Close size={18} color={color.inkMuted} />
+              </Pressable>
+            </View>
           ))}
         </View>
       )}
@@ -60,7 +87,26 @@ export function FamilyChips({
 
 const styles = StyleSheet.create({
   wrap: { gap: space.md },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
-  addRow: { flexDirection: 'row', gap: space.sm, alignItems: 'center' },
+  list: { gap: space.sm },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.sm,
+    backgroundColor: color.surface,
+    borderWidth: 1,
+    borderColor: color.hairline,
+    borderRadius: radius.md,
+    paddingHorizontal: space.md,
+    paddingVertical: space.sm,
+  },
   flex: { flex: 1 },
+  code: {
+    fontFamily: fontFamily.bold,
+    fontVariant: ['tabular-nums'],
+    fontSize: 17,
+    letterSpacing: 3,
+    color: color.inkDisplay,
+  },
+  iconBtn: { padding: space.xs },
+  addRow: { flexDirection: 'row', gap: space.sm, alignItems: 'center' },
 });

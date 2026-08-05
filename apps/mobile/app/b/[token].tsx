@@ -1,4 +1,4 @@
-import { type Bill } from '@aabill/api-types';
+import { type FamilyClaimView, type ShareSummary } from '@aabill/api-types';
 import { useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -21,26 +21,59 @@ import {
   Banner,
   Button,
   Card,
+  Input,
   Money,
   Screen,
   StickyBar,
   Text,
   Toast,
 } from '../../components/ui';
-import { Camera, ChevronRight, Lock } from '../../components/icons';
+import { Camera, Lock } from '../../components/icons';
+import { ReceiptMascot } from '../../components/characters/ReceiptMascot';
 
 const POLL_MS = 5000;
 const BAR_HEIGHT = 96;
 
+/** 记住某账单的口令,刷新不用重输(web 持久化;原生仅内存,失败静默) */
+const codeKey = (token: string) => `aabill_code_${token}`;
+const readCode = (token: string): string | null => {
+  try {
+    return typeof localStorage !== 'undefined'
+      ? localStorage.getItem(codeKey(token))
+      : null;
+  } catch {
+    return null;
+  }
+};
+const writeCode = (token: string, code: string | null) => {
+  try {
+    if (typeof localStorage === 'undefined') return;
+    if (code) localStorage.setItem(codeKey(token), code);
+    else localStorage.removeItem(codeKey(token));
+  } catch {
+    // 原生无 localStorage:忽略
+  }
+};
+
+/** 该家的稳定色号:participant 只拿到自己家 {id,name},用 id 派生一个稳定色 */
+const familyColorIndex = (id: string) =>
+  [...id].reduce((s, c) => s + c.charCodeAt(0), 0);
+
+const remainingSum = (v: FamilyClaimView) =>
+  v.items.reduce((s, i) => s + i.remaining, 0);
+
 /**
- * PRD C1-C4:Participant 免登录认领页(/b/{share_token})。
- * 认领是**本地选择 + 一次提交**:每点一次就发请求延迟太高;底部实时算钱,确认后批量提交。
+ * PRD C1-C4 + Beta:Participant 免登录认领页(/b/{share_token})。
+ * 每家一个 5 位口令:输入自己那家的口令后,只能看/改自己那份,并看到每件"还剩几件可领"。
+ * 认领是**本地选择 + 一次提交**:底部实时算钱,确认后批量提交。
  */
 export default function ClaimScreen() {
   const { t } = useLang();
   const { token } = useLocalSearchParams<{ token: string }>();
-  const [bill, setBill] = useState<Bill | null>(null);
-  const [selectedFamilyId, setSelectedFamilyId] = useState<string | null>(null);
+  const [summary, setSummary] = useState<ShareSummary | null>(null);
+  const [view, setView] = useState<FamilyClaimView | null>(null);
+  const [code, setCode] = useState<string | null>(null);
+  const [codeInput, setCodeInput] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [suggesting, setSuggesting] = useState(false);
   const [suggestedIds, setSuggestedIds] = useState<string[] | null>(null);
@@ -52,84 +85,92 @@ export default function ClaimScreen() {
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [sharedOpen, setSharedOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
-  // 轮询时对比别家认领总件数,增加了就提示"别家的认领有更新"
-  const othersTotalRef = useRef<number | null>(null);
+  // 轮询对比"总剩余量",变少了说明别家刚认领 → 轻提示
+  const remainingRef = useRef<number | null>(null);
 
-  const refresh = useCallback(async () => {
-    if (!token) return;
-    try {
-      const next = await api.getShare(token);
-      setBill(() => {
-        // 检测别家认领变化(仅在已选家庭后有基线)
-        if (selectedFamilyId) {
-          const othersTotal = next.claims
-            .filter((cl) => cl.familyId !== selectedFamilyId)
-            .reduce((s, cl) => s + cl.portion, 0);
-          if (
-            othersTotalRef.current !== null &&
-            othersTotal > othersTotalRef.current
-          ) {
-            setToast(t('claim.othersUpdated'));
-          }
-          othersTotalRef.current = othersTotal;
+  /** 凭口令进入自己那家;initDraft=true 时用服务端已有认领初始化本地草稿 */
+  const enterWith = useCallback(
+    async (c: string, initDraft = true) => {
+      if (!token) return;
+      try {
+        const v = await api.enterFamily(token, c);
+        setView(v);
+        setCode(c);
+        writeCode(token, c);
+        setError(null);
+        remainingRef.current = remainingSum(v);
+        if (initDraft) {
+          const mine: Record<string, number> = {};
+          for (const i of v.items)
+            if (i.myPortion > 0) mine[i.id] = i.myPortion;
+          setDraft(mine);
+          setConflicts({});
+          setSavedAt(null);
         }
-        return next;
-      });
-      setError(null);
-    } catch (e) {
-      setError(String(e));
-    }
-  }, [token, selectedFamilyId, t]);
+      } catch {
+        setError(t('claim.codeWrong'));
+      }
+    },
+    [token, t],
+  );
 
+  /** 轮询刷新 scoped 视图(不碰本地草稿:用户正在改的不能被覆盖) */
+  const refreshView = useCallback(
+    async (c: string) => {
+      if (!token) return;
+      try {
+        const v = await api.enterFamily(token, c);
+        const sum = remainingSum(v);
+        if (remainingRef.current !== null && sum < remainingRef.current) {
+          setToast(t('claim.othersUpdated'));
+        }
+        remainingRef.current = sum;
+        setView(v);
+        setError(null);
+      } catch {
+        // 轮询失败静默(可能锁定或网络抖动),不打断用户
+      }
+    },
+    [token, t],
+  );
+
+  // 首屏:拿最小 summary;若本地存过口令,自动进入
   useEffect(() => {
-    void refresh();
-    const timer = setInterval(() => void refresh(), POLL_MS);
+    if (!token) return;
+    let alive = true;
+    void (async () => {
+      try {
+        const s = await api.getShareSummary(token);
+        if (!alive) return;
+        setSummary(s);
+        const saved = readCode(token);
+        if (saved) await enterWith(saved, false);
+      } catch (e) {
+        if (alive) setError(String(e));
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [token, enterWith]);
+
+  // 进入后定时刷新剩余量
+  useEffect(() => {
+    if (!code) return;
+    const timer = setInterval(() => void refreshView(code), POLL_MS);
     return () => clearInterval(timer);
-  }, [refresh]);
+  }, [code, refreshView]);
 
-  if (!bill) {
-    return (
-      <Screen>
-        <Text variant="body" tone="muted">
-          {error ?? t('common.loading')}
-        </Text>
-      </Screen>
-    );
-  }
-
-  const locked = bill.status === 'locked';
-  // 税制未定 → 税额无从算,汇总只给净额。税率取账单上存的实际值。
-  const rates = bill.taxRates;
-  const selectedFamily =
-    bill.families.find((f) => f.id === selectedFamilyId) ?? null;
-
-  /** 选家庭时,用服务端已有的该家认领初始化本地草稿(轮询不会覆盖用户正在改的) */
-  const selectFamily = (familyId: string) => {
-    setSelectedFamilyId(familyId);
-    const mine: Record<string, number> = {};
-    for (const cl of bill.claims) {
-      if (cl.familyId === familyId) mine[cl.itemId] = cl.portion;
-    }
-    setDraft(mine);
+  const switchCode = () => {
+    if (token) writeCode(token, null);
+    setCode(null);
+    setView(null);
+    setCodeInput('');
+    setDraft({});
     setConflicts({});
     setSavedAt(null);
-    othersTotalRef.current = bill.claims
-      .filter((cl) => cl.familyId !== familyId)
-      .reduce((s, cl) => s + cl.portion, 0);
+    remainingRef.current = null;
   };
-
-  const othersPortions = (itemId: string) =>
-    bill.claims
-      .filter((cl) => cl.itemId === itemId && cl.familyId !== selectedFamilyId)
-      .reduce((s, cl) => s + cl.portion, 0);
-
-  const othersClaimsFor = (itemId: string) =>
-    bill.claims
-      .filter((cl) => cl.itemId === itemId && cl.familyId !== selectedFamilyId)
-      .map((cl) => ({
-        familyIndex: bill.families.findIndex((f) => f.id === cl.familyId),
-        name: bill.families.find((f) => f.id === cl.familyId)?.name ?? '',
-      }));
 
   const setPortion = (itemId: string, portion: number) => {
     setDraft((d) => ({ ...d, [itemId]: portion }));
@@ -141,33 +182,89 @@ export default function ClaimScreen() {
     setSavedAt(null);
   };
 
-  const totals = claimTotals(bill.items, draft, rates);
-  const chosen = bill.items.filter(
+  // ── 输入口令前:最小首屏(口令门)──
+  if (!view) {
+    return (
+      <Screen scroll>
+        <Text variant="display" latin numberOfLines={2}>
+          {summary?.title ?? t('common.loading')}
+        </Text>
+        <LanguagePicker />
+        {summary && !summary.hasFamilies ? (
+          <Banner tone="warning">
+            <Text variant="label" style={{ color: color.accentInk }}>
+              {t('claim.noFamilies')}
+            </Text>
+            <Text variant="muted" tone="muted">
+              {t('claim.noFamiliesHint')}
+            </Text>
+          </Banner>
+        ) : (
+          <Card style={styles.codeCard}>
+            <ReceiptMascot size={92} />
+            <Text variant="heading" tone="display" style={styles.center}>
+              {t('claim.enterTitle')}
+            </Text>
+            <Text variant="muted" tone="muted" style={styles.center}>
+              {t('claim.enterHint')}
+            </Text>
+            <Input
+              testID="code-input"
+              style={styles.codeInput}
+              value={codeInput}
+              onChangeText={(v) =>
+                setCodeInput(v.replace(/\D/g, '').slice(0, 5))
+              }
+              placeholder={t('claim.codePlaceholder')}
+              keyboardType="number-pad"
+              maxLength={5}
+              onSubmitEditing={() =>
+                codeInput.length === 5 && void enterWith(codeInput)
+              }
+            />
+            {error && (
+              <Text variant="body" tone="danger" style={styles.center}>
+                {error}
+              </Text>
+            )}
+            <Button
+              testID="enter-btn"
+              label={t('claim.enterBtn')}
+              onPress={() => void enterWith(codeInput)}
+              disabled={codeInput.length !== 5}
+              fullWidth
+            />
+          </Card>
+        )}
+      </Screen>
+    );
+  }
+
+  // ── 已进入自己那家 ──
+  const locked = view.status === 'locked';
+  const rates = view.taxRates;
+  const claimable = view.items.filter((i) => !i.isShared);
+  const shared = view.items.filter((i) => i.isShared);
+  const totals = claimTotals(view.items, draft, rates);
+  const chosen = view.items.filter(
     (i) => !i.isShared && (draft[i.id] ?? 0) > 0,
   );
-  const claimable = bill.items.filter((i) => !i.isShared);
-  const shared = bill.items.filter((i) => i.isShared);
-
-  const dirty =
-    selectedFamilyId !== null &&
-    bill.claims.filter((c) => c.familyId === selectedFamilyId).length +
-      chosen.length >
-      0;
+  const dirty = Object.values(draft).some((n) => n > 0) || chosen.length > 0;
 
   const submit = async () => {
-    if (!selectedFamilyId) return;
+    if (!code) return;
     setSubmitting(true);
     setError(null);
     try {
       const res = await api.claimBatch(
         token!,
-        selectedFamilyId,
+        code,
         chosen.map((i) => ({ itemId: i.id, portion: draft[i.id] ?? 0 })),
       );
       if (res.ok) {
         setConflicts({});
         setSavedAt(Date.now());
-        await refresh();
+        await refreshView(code);
       } else {
         const map: Record<string, string> = {};
         for (const cf of res.conflicts as ClaimConflict[]) {
@@ -187,8 +284,8 @@ export default function ClaimScreen() {
     }
   };
 
-  /** 拍照 → AI 建议(只写进本地草稿,仍需用户确认并提交) */
   const photoSuggest = async () => {
+    if (!code) return;
     const picked = await pickInvoice();
     if (!picked) return;
     setSuggesting(true);
@@ -196,6 +293,7 @@ export default function ClaimScreen() {
     try {
       const { suggestedItemIds } = await api.suggestClaims(
         token!,
+        code,
         picked.base64,
         picked.mimeType,
       );
@@ -211,15 +309,10 @@ export default function ClaimScreen() {
     setSuggestedIds(null);
     setDraft((d) => {
       const next = { ...d };
-      for (const id of itemIds) {
-        if ((next[id] ?? 0) === 0) next[id] = 1; // 默认领 1 件,用户可再调
-      }
+      for (const id of itemIds) if ((next[id] ?? 0) === 0) next[id] = 1;
       return next;
     });
   };
-
-  // ── 家庭门:未选家庭前只显示标题 + 家庭卡片,其余一律隐藏 ──
-  const gate = !selectedFamilyId && !locked;
 
   return (
     <View style={styles.root}>
@@ -228,9 +321,9 @@ export default function ClaimScreen() {
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <Screen scroll bottomInset={selectedFamily && !locked ? BAR_HEIGHT : 0}>
+        <Screen scroll bottomInset={!locked ? BAR_HEIGHT : 0}>
           <Text variant="display" latin numberOfLines={2}>
-            {bill.title}
+            {view.billTitle}
           </Text>
 
           {locked && (
@@ -251,146 +344,97 @@ export default function ClaimScreen() {
 
           <LanguagePicker />
 
-          {bill.families.length === 0 ? (
-            <Banner tone="warning">
-              <Text variant="label" style={{ color: color.accentInk }}>
-                {t('claim.noFamilies')}
-              </Text>
-              <Text variant="muted" tone="muted">
-                {t('claim.noFamiliesHint')}
-              </Text>
-            </Banner>
-          ) : gate ? (
-            // 家庭门
+          <View style={styles.familyHeader}>
+            <Avatar
+              name={view.family.name}
+              index={familyColorIndex(view.family.id)}
+              size={28}
+              face
+            />
+            <Text variant="subhead" style={styles.flex}>
+              {t('claim.youAre', { name: view.family.name })}
+            </Text>
+            <Button
+              testID="switch-code"
+              label={t('claim.switchCode')}
+              variant="ghost"
+              onPress={switchCode}
+            />
+          </View>
+
+          {!locked && (
             <>
-              <Text variant="heading" tone="display">
-                {t('claim.whichFamily')}
-              </Text>
-              <View style={styles.familyGrid}>
-                {bill.families.map((f, i) => (
-                  <Pressable
-                    key={f.id}
-                    onPress={() => selectFamily(f.id)}
-                    style={styles.familyCardWrap}
-                  >
-                    <Card style={styles.familyCard}>
-                      <Avatar name={f.name} index={i} size={40} face />
-                      <Text
-                        variant="subhead"
-                        numberOfLines={1}
-                        style={styles.flex}
-                      >
-                        {f.name}
-                      </Text>
-                      <ChevronRight size={20} color={color.inkFaint} />
-                    </Card>
-                  </Pressable>
-                ))}
-              </View>
-            </>
-          ) : (
-            // 已选家庭:紧凑头 + 商品
-            <>
-              {selectedFamily && (
-                <View style={styles.selectedHeader}>
-                  <Avatar
-                    name={selectedFamily.name}
-                    index={bill.families.findIndex(
-                      (f) => f.id === selectedFamily.id,
-                    )}
-                    size={28}
-                  />
-                  <Text variant="subhead" style={styles.flex}>
-                    {selectedFamily.name}
-                  </Text>
-                  {!locked && (
-                    <Button
-                      label={t('claim.switchFamily')}
-                      variant="ghost"
-                      onPress={() => setSelectedFamilyId(null)}
-                    />
-                  )}
-                </View>
-              )}
-
-              {selectedFamilyId && !locked && (
-                <>
-                  <Button
-                    label={suggesting ? t('claim.photoBusy') : t('claim.photo')}
-                    variant="secondary"
-                    icon={Camera}
-                    onPress={() => void photoSuggest()}
-                    disabled={suggesting}
-                    fullWidth
-                  />
-                  <Text variant="muted" tone="faint">
-                    {t('claim.photoHint')}
-                  </Text>
-                </>
-              )}
-
-              {suggestedIds !== null && (
-                <ClaimSuggestionReview
-                  items={bill.items.filter((i) => suggestedIds.includes(i.id))}
-                  onConfirm={confirmSuggested}
-                  onCancel={() => setSuggestedIds(null)}
-                />
-              )}
-
-              <Text variant="heading" tone="display" style={styles.sectionHead}>
-                {t('claim.claimable', { n: claimable.length })}
-              </Text>
-              {claimable.map((item) => (
-                <ClaimItemRow
-                  key={item.id}
-                  item={item}
-                  myPortion={draft[item.id] ?? 0}
-                  othersPortions={othersPortions(item.id)}
-                  othersClaims={othersClaimsFor(item.id)}
-                  locked={locked || !selectedFamilyId}
-                  {...(conflicts[item.id]
-                    ? { conflict: conflicts[item.id] }
-                    : {})}
-                  onChange={(portion) => setPortion(item.id, portion)}
-                />
-              ))}
-
-              {shared.length > 0 && (
-                <Card tone="sunk" style={styles.sharedCard}>
-                  <Pressable
-                    onPress={() => setSharedOpen((v) => !v)}
-                    style={styles.sharedHead}
-                  >
-                    <Text variant="label" tone="muted" style={styles.flex}>
-                      {t('claim.sharedGroup', { n: shared.length })}
-                    </Text>
-                    <Text variant="muted" tone="faint">
-                      {sharedOpen ? '−' : '+'}
-                    </Text>
-                  </Pressable>
-                  {sharedOpen &&
-                    shared.map((i) => (
-                      <Text key={i.id} variant="muted" tone="muted">
-                        {i.name}
-                        {i.nameTranslated ? ` · ${i.nameTranslated}` : ''}
-                      </Text>
-                    ))}
-                </Card>
-              )}
-
-              <Text variant="muted" tone="faint" style={styles.autoSync}>
-                {t('claim.autoSync')}
+              <Button
+                label={suggesting ? t('claim.photoBusy') : t('claim.photo')}
+                variant="secondary"
+                icon={Camera}
+                onPress={() => void photoSuggest()}
+                disabled={suggesting}
+                fullWidth
+              />
+              <Text variant="muted" tone="faint">
+                {t('claim.photoHint')}
               </Text>
             </>
           )}
+
+          {suggestedIds !== null && (
+            <ClaimSuggestionReview
+              items={view.items.filter((i) => suggestedIds.includes(i.id))}
+              onConfirm={confirmSuggested}
+              onCancel={() => setSuggestedIds(null)}
+            />
+          )}
+
+          <Text variant="heading" tone="display" style={styles.sectionHead}>
+            {t('claim.claimable', { n: claimable.length })}
+          </Text>
+          {claimable.map((item) => (
+            <ClaimItemRow
+              key={item.id}
+              item={item}
+              myPortion={draft[item.id] ?? 0}
+              othersPortions={item.claimable - item.remaining}
+              locked={locked}
+              {...(conflicts[item.id] ? { conflict: conflicts[item.id] } : {})}
+              onChange={(portion) => setPortion(item.id, portion)}
+            />
+          ))}
+
+          {shared.length > 0 && (
+            <Card tone="sunk" style={styles.sharedCard}>
+              <Pressable
+                onPress={() => setSharedOpen((v) => !v)}
+                style={styles.sharedHead}
+              >
+                <Text variant="label" tone="muted" style={styles.flex}>
+                  {t('claim.sharedGroup', { n: shared.length })}
+                </Text>
+                <Text variant="muted" tone="faint">
+                  {sharedOpen ? '−' : '+'}
+                </Text>
+              </Pressable>
+              {sharedOpen &&
+                shared.map((i) => (
+                  <Text key={i.id} variant="muted" tone="muted">
+                    {i.name}
+                    {i.nameTranslated ? ` · ${i.nameTranslated}` : ''}
+                  </Text>
+                ))}
+            </Card>
+          )}
+
+          <Text variant="muted" tone="faint" style={styles.autoSync}>
+            {t('claim.autoSync')}
+          </Text>
         </Screen>
 
-        {selectedFamily && !locked && (
+        {!locked && (
           <StickyBar>
             <View style={styles.flex}>
               <Text variant="muted" tone="muted">
                 {t('claim.chosen', {
-                  kinds: totals.kinds,
+                  kinds: chosen.length,
                   units: totals.units,
                 })}
               </Text>
@@ -424,11 +468,16 @@ export default function ClaimScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: color.canvas },
   flex: { flex: 1 },
+  center: { textAlign: 'center' },
+  codeCard: { alignItems: 'center', gap: space.md },
+  codeInput: {
+    fontSize: 28,
+    textAlign: 'center',
+    letterSpacing: 8,
+    alignSelf: 'stretch',
+  },
   lockedLine: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
-  familyGrid: { gap: space.md },
-  familyCardWrap: {},
-  familyCard: { flexDirection: 'row', alignItems: 'center', gap: space.md },
-  selectedHeader: {
+  familyHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: space.md,

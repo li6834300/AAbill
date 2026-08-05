@@ -78,8 +78,18 @@ describe('PostgresBillRepo', () => {
     const bill = sampleBill();
     await repo.create(bill);
 
-    const famA = { id: crypto.randomUUID(), name: 'Rio家', sortOrder: 0 };
-    const famB = { id: crypto.randomUUID(), name: '老唐家', sortOrder: 1 };
+    const famA = {
+      id: crypto.randomUUID(),
+      name: 'Rio家',
+      sortOrder: 0,
+      accessCode: '10001',
+    };
+    const famB = {
+      id: crypto.randomUUID(),
+      name: '老唐家',
+      sortOrder: 1,
+      accessCode: '10002',
+    };
     bill.families = [famA, famB];
     bill.items = [
       {
@@ -203,13 +213,13 @@ describe('路由全流程走 Postgres 仓储', () => {
         }),
       ),
     );
-    const fam = await j<Obj>(
+    const fam = await j<Obj & { accessCode: string }>(
       await app.request(post(`/bills/${bill.id}/families`, { name: '甲' })),
     );
     await app.request(
       post(
-        `/share/${bill.shareToken}/claims`,
-        { itemId: item.id, familyId: fam.id, portion: 1 },
+        `/share/${bill.shareToken}/claims/batch`,
+        { code: fam.accessCode, claims: [{ itemId: item.id, portion: 1 }] },
         'PUT',
       ),
     );

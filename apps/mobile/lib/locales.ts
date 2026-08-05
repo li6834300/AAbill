@@ -71,6 +71,7 @@ const zh = {
     '还没添加家庭 —— 朋友打开分享链接将无法认领,请先把参与的家庭加上。',
   'bill.share': '分享认领',
   'bill.copyLink': '复制分享链接',
+  'bill.shareHint': '把这条「认领链接」发给朋友(不要发浏览器地址栏里的网址)。',
   'bill.claimProgress': '认领进度:{done}/{total}',
   'bill.lockedSuffix': ' · 已锁定',
   'bill.summary': 'AA 汇总',
@@ -111,6 +112,7 @@ const zh = {
   'validate.grossDiff': '含税差',
 
   'family.placeholder': '家庭名(如 Rio家)',
+  'family.copyCode': '复制口令',
 
   'item.name': '名称',
   'item.nameTranslated': '译名',
@@ -119,6 +121,14 @@ const zh = {
   'item.taxClass': '税类 {cls}',
   'item.shared': '均摊',
 
+  'claim.enterTitle': '输入你的认领口令',
+  'claim.enterHint':
+    '发起人会把一个 5 位数字口令发给你;只有你能看到并认领自己那份。',
+  'claim.codePlaceholder': '5 位数字',
+  'claim.enterBtn': '进入',
+  'claim.codeWrong': '口令不正确,请向发起人确认。',
+  'claim.youAre': '你是「{name}」',
+  'claim.switchCode': '不是这家?换口令',
   'claim.lockedNotice': '账单已锁定,认领结果不可再修改',
   'claim.whichFamily': '我是哪家?',
   'claim.noFamilies': '账单发起人还没添加参与的家庭,暂时无法认领。',
@@ -185,6 +195,11 @@ const zh = {
   'translation.mismatch': '本账单的商品译名是{lang},与当前界面语言不同。',
   'translation.rescan': '重新识别发票以翻译成{lang}(会覆盖 AI 条目)',
 
+  'signin.title': '需要登录',
+  'signin.ownerHint': '这是账单管理页,登录后才能查看和编辑。',
+  'signin.claimerHint':
+    '如果你是受邀来认领账单的,请向发起人索取「认领链接」(网址里带 /b/),这个管理链接不能用来认领。',
+  'signin.action': '去登录',
   'lang.label': '语言',
 } as const;
 
@@ -250,6 +265,8 @@ const en: Catalog = {
     'No households yet — friends opening the share link cannot claim anything. Add them first.',
   'bill.share': 'Share for claiming',
   'bill.copyLink': 'Copy share link',
+  'bill.shareHint':
+    'Send friends this claim link — not the URL in your browser address bar.',
   'bill.claimProgress': 'Claimed: {done}/{total}',
   'bill.lockedSuffix': ' · locked',
   'bill.summary': 'Split summary',
@@ -291,6 +308,7 @@ const en: Catalog = {
   'validate.grossDiff': 'Gross diff',
 
   'family.placeholder': 'Household name (e.g. the Rios)',
+  'family.copyCode': 'Copy code',
 
   'item.name': 'Name',
   'item.nameTranslated': 'Translated name',
@@ -299,6 +317,15 @@ const en: Catalog = {
   'item.taxClass': 'VAT class {cls}',
   'item.shared': 'Split evenly',
 
+  'claim.enterTitle': 'Enter your claim code',
+  'claim.enterHint':
+    'The organiser sends you a 5-digit code; only you can see and claim your share.',
+  'claim.codePlaceholder': '5 digits',
+  'claim.enterBtn': 'Enter',
+  'claim.codeWrong':
+    'That code is not correct — please check with the organiser.',
+  'claim.youAre': 'You are “{name}”',
+  'claim.switchCode': 'Not you? Switch code',
   'claim.lockedNotice': 'This bill is locked — claims can no longer be changed',
   'claim.whichFamily': 'Which household are you?',
   'claim.noFamilies':
@@ -372,6 +399,12 @@ const en: Catalog = {
   'translation.rescan':
     'Re-scan the receipt to translate into {lang} (replaces AI rows)',
 
+  'signin.title': 'Sign-in required',
+  'signin.ownerHint':
+    'This is the bill management page — sign in to view and edit it.',
+  'signin.claimerHint':
+    'If you were invited to claim items, ask the organiser for the claim link (its URL contains /b/). This management link cannot be used to claim.',
+  'signin.action': 'Sign in',
   'lang.label': 'Language',
 };
 
@@ -435,6 +468,8 @@ const nl: Catalog = {
     'Nog geen huishoudens — wie de deellink opent kan niets claimen. Voeg ze eerst toe.',
   'bill.share': 'Delen om te claimen',
   'bill.copyLink': 'Deellink kopiëren',
+  'bill.shareHint':
+    'Stuur vrienden deze claimlink — niet de URL in je adresbalk.',
   'bill.claimProgress': 'Geclaimd: {done}/{total}',
   'bill.lockedSuffix': ' · vergrendeld',
   'bill.summary': 'Verdeeloverzicht',
@@ -478,6 +513,7 @@ const nl: Catalog = {
   'validate.grossDiff': 'Verschil bruto',
 
   'family.placeholder': 'Naam huishouden (bijv. familie Rio)',
+  'family.copyCode': 'Code kopiëren',
 
   'item.name': 'Naam',
   'item.nameTranslated': 'Vertaalde naam',
@@ -486,6 +522,15 @@ const nl: Catalog = {
   'item.taxClass': 'Btw-klasse {cls}',
   'item.shared': 'Gelijk verdelen',
 
+  'claim.enterTitle': 'Voer je claimcode in',
+  'claim.enterHint':
+    'De organisator stuurt je een code van 5 cijfers; alleen jij ziet en claimt jouw deel.',
+  'claim.codePlaceholder': '5 cijfers',
+  'claim.enterBtn': 'Binnengaan',
+  'claim.codeWrong':
+    'Die code klopt niet — vraag het even na bij de organisator.',
+  'claim.youAre': 'Jij bent “{name}”',
+  'claim.switchCode': 'Niet jij? Andere code',
   'claim.lockedNotice':
     'Deze bon is vergrendeld — claims kunnen niet meer worden gewijzigd',
   'claim.whichFamily': 'Welk huishouden ben jij?',
@@ -562,6 +607,12 @@ const nl: Catalog = {
   'translation.rescan':
     'Bon opnieuw scannen om naar het {lang} te vertalen (vervangt AI-regels)',
 
+  'signin.title': 'Inloggen vereist',
+  'signin.ownerHint':
+    'Dit is de beheerpagina van de bon — log in om te bekijken en bewerken.',
+  'signin.claimerHint':
+    'Ben je uitgenodigd om te claimen? Vraag de organisator om de claimlink (met /b/ in de URL). Deze beheerlink kun je niet gebruiken om te claimen.',
+  'signin.action': 'Inloggen',
   'lang.label': 'Taal',
 };
 
@@ -627,6 +678,8 @@ const de: Catalog = {
     'Noch keine Haushalte — wer den Teilen-Link öffnet, kann nichts beanspruchen. Bitte zuerst hinzufügen.',
   'bill.share': 'Zum Beanspruchen teilen',
   'bill.copyLink': 'Teilen-Link kopieren',
+  'bill.shareHint':
+    'Sende Freunden diesen Anspruchslink — nicht die URL aus der Adressleiste.',
   'bill.claimProgress': 'Beansprucht: {done}/{total}',
   'bill.lockedSuffix': ' · gesperrt',
   'bill.summary': 'Aufteilungsübersicht',
@@ -671,6 +724,7 @@ const de: Catalog = {
   'validate.grossDiff': 'Differenz brutto',
 
   'family.placeholder': 'Name des Haushalts (z. B. Familie Rio)',
+  'family.copyCode': 'Code kopieren',
 
   'item.name': 'Name',
   'item.nameTranslated': 'Übersetzter Name',
@@ -679,6 +733,15 @@ const de: Catalog = {
   'item.taxClass': 'Steuerklasse {cls}',
   'item.shared': 'Gleichmäßig teilen',
 
+  'claim.enterTitle': 'Gib deinen Anspruchscode ein',
+  'claim.enterHint':
+    'Der Organisator schickt dir einen 5-stelligen Code; nur du siehst und beanspruchst deinen Anteil.',
+  'claim.codePlaceholder': '5 Ziffern',
+  'claim.enterBtn': 'Eintreten',
+  'claim.codeWrong':
+    'Der Code stimmt nicht — bitte beim Organisator nachfragen.',
+  'claim.youAre': 'Du bist „{name}“',
+  'claim.switchCode': 'Nicht du? Code wechseln',
   'claim.lockedNotice':
     'Diese Rechnung ist gesperrt — Ansprüche lassen sich nicht mehr ändern',
   'claim.whichFamily': 'Welcher Haushalt bist du?',
@@ -755,6 +818,12 @@ const de: Catalog = {
   'translation.rescan':
     'Rechnung neu erkennen und auf {lang} übersetzen (ersetzt KI-Zeilen)',
 
+  'signin.title': 'Anmeldung erforderlich',
+  'signin.ownerHint':
+    'Dies ist die Verwaltungsseite der Rechnung — zum Ansehen und Bearbeiten bitte anmelden.',
+  'signin.claimerHint':
+    'Wenn du zum Beanspruchen eingeladen wurdest, bitte den Organisator um den Anspruchslink (mit /b/ in der URL). Dieser Verwaltungslink funktioniert dafür nicht.',
+  'signin.action': 'Anmelden',
   'lang.label': 'Sprache',
 };
 
