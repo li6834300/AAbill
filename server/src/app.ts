@@ -43,6 +43,13 @@ import {
 import type { BillRepo } from './repo.js';
 import { hashPassword, verifyPassword } from './auth/password.js';
 import { quotaStatus } from './quota.js';
+import { createConsoleMailer, type Mailer } from './mail/mailer.js';
+import {
+  VERIFICATION_TTL_MS,
+  hashVerificationToken,
+  isVerificationExpired,
+  newVerificationToken,
+} from './auth/verification.js';
 import {
   createInMemoryUserRepo,
   normalizeEmail,
@@ -57,12 +64,18 @@ export interface AppDeps {
   userRepo?: UserRepo;
   /** 可注入时钟,便于测试跨月重置 */
   now?: () => Date;
+  mailer?: Mailer;
+  /** 验证链接指向的前端地址 */
+  appBaseUrl?: string;
   parser?: ReceiptParser;
   verifier?: IdentityVerifier;
   jwtSecret?: string;
   fileStore?: FileStore;
   suggester?: ClaimSuggester;
 }
+
+/** 每天最多新增多少个**已验证**账号。未验证的注册不占名额。 */
+const DAILY_SIGNUP_LIMIT = 10;
 
 // Owner 路由把已鉴权用户挂在 context 上
 type Env = { Variables: { user: AuthUser } };
@@ -188,6 +201,8 @@ export function createApp({
   suggester = createMockSuggester(),
   userRepo = createInMemoryUserRepo(),
   now = () => new Date(),
+  mailer = createConsoleMailer(),
+  appBaseUrl = 'http://localhost:8081',
 }: AppDeps) {
   const app = new Hono<Env>();
   app.use('*', cors());
@@ -202,12 +217,50 @@ export function createApp({
   async function ensureUser(sub: string, email: string): Promise<User> {
     const existing = await userRepo.findById(sub);
     if (existing) return existing;
+    // OAuth/dev 登录的邮箱已由身份提供方验证过,直接算已验证
+    const at = now().toISOString();
     return userRepo.create({
       id: sub,
       email: normalizeEmail(email),
       passwordHash: null,
       plan: 'free',
-      createdAt: new Date().toISOString(),
+      createdAt: at,
+      emailVerifiedAt: at,
+      verificationTokenHash: null,
+      verificationExpiresAt: null,
+    });
+  }
+
+  /** 当天(UTC)起点,每日注册名额按自然日重置。 */
+  function dayStart(at: Date): string {
+    return new Date(
+      Date.UTC(at.getUTCFullYear(), at.getUTCMonth(), at.getUTCDate()),
+    ).toISOString();
+  }
+
+  /** 今日已验证账号是否已满。未验证的注册不占名额。 */
+  async function dailySignupFull(at: Date): Promise<boolean> {
+    return (
+      (await userRepo.countVerifiedSince(dayStart(at))) >= DAILY_SIGNUP_LIMIT
+    );
+  }
+
+  /** 生成新验证令牌、写回用户、发信。返回原文仅用于发信。 */
+  async function issueVerification(user: User): Promise<void> {
+    const raw = newVerificationToken();
+    const at = now();
+    await userRepo.save({
+      ...user,
+      verificationTokenHash: hashVerificationToken(raw),
+      verificationExpiresAt: new Date(
+        at.getTime() + VERIFICATION_TTL_MS,
+      ).toISOString(),
+    });
+    const link = `${appBaseUrl}/verify?token=${raw}`;
+    await mailer.send({
+      to: user.email,
+      subject: 'AAbill:验证你的邮箱',
+      text: `点击链接完成注册(24 小时内有效):\n${link}\n\n如果不是你本人操作,忽略这封信即可。`,
     });
   }
 
@@ -231,14 +284,81 @@ export function createApp({
     if (await userRepo.findByEmail(email)) {
       return c.json({ error: '该邮箱已注册,请直接登录' }, 409);
     }
+    // 名额预检:满了当场告知,不让人白等一封信、点了链接才被拒
+    if (await dailySignupFull(now())) {
+      return c.json(
+        {
+          error: `今天的注册名额已满(每天 ${DAILY_SIGNUP_LIMIT} 个),请明天再来`,
+        },
+        429,
+      );
+    }
+    const at = now().toISOString();
     const user = await userRepo.create({
       id: subFromEmail(email),
       email,
       passwordHash: await hashPassword(parsed.data.password),
       plan: 'free',
-      createdAt: new Date().toISOString(),
+      createdAt: at,
+      emailVerifiedAt: null,
+      verificationTokenHash: null,
+      verificationExpiresAt: null,
     });
-    return c.json(await sessionBody(user), 201);
+    await issueVerification(user);
+    // 202:已受理但还不能用 —— 不签发 JWT,必须先验证邮箱
+    return c.json({ pendingVerification: true, email }, 202);
+  });
+
+  /**
+   * 点验证链接。名额检查在这里才作准 —— 账号是在这一刻才真正可用的。
+   * 名额满时**不作废**令牌:用户第二天还能用同一个链接(只要没过 24h)。
+   */
+  app.post('/auth/verify', async (c) => {
+    const body = await c.req.json().catch(() => null);
+    const raw = (body as { token?: unknown } | null)?.token;
+    if (typeof raw !== 'string' || !raw) {
+      return c.json({ error: '验证链接无效' }, 400);
+    }
+    const user = await userRepo.findByVerificationTokenHash(
+      hashVerificationToken(raw),
+    );
+    const at = now();
+    if (!user || isVerificationExpired(user.verificationExpiresAt, at)) {
+      return c.json({ error: '验证链接无效或已过期,请重新发送' }, 400);
+    }
+    if (await dailySignupFull(at)) {
+      return c.json(
+        {
+          error: `今天的注册名额已满(每天 ${DAILY_SIGNUP_LIMIT} 个),这个链接明天仍然有效`,
+        },
+        429,
+      );
+    }
+    // 令牌一次性:验证后清空,防重放
+    const verified = await userRepo.save({
+      ...user,
+      emailVerifiedAt: at.toISOString(),
+      verificationTokenHash: null,
+      verificationExpiresAt: null,
+    });
+    return c.json(await sessionBody(verified));
+  });
+
+  /**
+   * 重发验证信。一律返回 202 —— 否则这个接口能被用来探测哪些邮箱注册过。
+   * 重发会换新令牌,旧的随即失效。
+   */
+  app.post('/auth/resend-verification', async (c) => {
+    const body = await c.req.json().catch(() => null);
+    const raw = (body as { email?: unknown } | null)?.email;
+    const accepted = c.json({ ok: true }, 202);
+    if (typeof raw !== 'string' || !raw) return accepted;
+
+    const user = await userRepo.findByEmail(raw);
+    // 已验证的不再发:重发对它没意义,也避免被当成骚扰工具
+    if (!user || user.emailVerifiedAt !== null) return accepted;
+    await issueVerification(user);
+    return accepted;
   });
 
   // 邮箱+密码登录。密码错与账号不存在必须返回**完全相同**的响应,
@@ -254,6 +374,13 @@ export function createApp({
     if (!user?.passwordHash) return denied;
     if (!(await verifyPassword(parsed.data.password, user.passwordHash))) {
       return denied;
+    }
+    // 密码对了才提示"待验证" —— 放在密码校验之后,才不会泄露账号是否存在
+    if (user.emailVerifiedAt === null) {
+      return c.json(
+        { error: '邮箱还没验证,请查收验证邮件', needsVerification: true },
+        403,
+      );
     }
     return c.json(await sessionBody(user));
   });

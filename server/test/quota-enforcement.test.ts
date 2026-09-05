@@ -4,6 +4,7 @@ import type { ReceiptParser } from '../src/ai/provider.js';
 import { createApp } from '../src/app.js';
 import { createInMemoryRepo } from '../src/repo.js';
 import { createInMemoryUserRepo, type UserRepo } from '../src/users.js';
+import { createCaptureMailer, type CaptureMailer } from '../src/mail/mailer.js';
 
 // 额度卡在 AI 识别(唯一烧 OpenAI 钱的动作)。免费 2 次/月,PRO 20 次/月。
 // 一个额度 = 一张账单的**首次成功**识别:重试不重扣,失败不扣。
@@ -38,6 +39,9 @@ const failParser: ReceiptParser = {
   },
 };
 
+// 邮箱验证接入后,登录态要走「注册 → 验证」两步,故需要能读到验证信的 mailer
+let mailer: CaptureMailer;
+
 function makeApp(
   opts: {
     parser?: ReceiptParser;
@@ -45,10 +49,12 @@ function makeApp(
     now?: () => Date;
   } = {},
 ) {
+  mailer = createCaptureMailer();
   return createApp({
     repo: createInMemoryRepo(),
     userRepo: opts.userRepo ?? createInMemoryUserRepo(),
     parser: opts.parser ?? okParser,
+    mailer,
     jwtSecret: SECRET,
     ...(opts.now ? { now: opts.now } : {}),
   });
@@ -67,10 +73,13 @@ const post = (
     body: JSON.stringify(body),
   });
 
+/** 注册 + 验证邮箱,拿到可用 JWT */
 async function register(app: App, email = 'quota@example.com') {
-  const res = await app.request(
+  await app.request(
     post('/auth/register', { email, password: 'goodpassword' }),
   );
+  const m = /token=([0-9a-f]{64})/.exec(mailer.sent.at(-1)?.text ?? '');
+  const res = await app.request(post('/auth/verify', { token: m![1] }));
   return (await j<{ token: string }>(res)).token;
 }
 

@@ -32,7 +32,10 @@ describe('发信抽象', () => {
     await mailer.send({ to: 'b@example.com', subject: 's', text: 'body-1' });
     await mailer.send({ to: 'c@example.com', subject: 's2', text: 'body-2' });
     expect(mailer.sent).toHaveLength(2);
-    expect(mailer.sent[1]).toMatchObject({ to: 'c@example.com', text: 'body-2' });
+    expect(mailer.sent[1]).toMatchObject({
+      to: 'c@example.com',
+      text: 'body-2',
+    });
   });
 
   it('配了 RESEND_API_KEY 走 resend', () => {
