@@ -1,6 +1,7 @@
 import {
   AccessCodeSchema,
   BillCreateSchema,
+  CredentialsSchema,
   ClaimBatchSchema,
   claimableUnits,
   EnterFamilySchema,
@@ -40,10 +41,19 @@ import {
   type IdentityVerifier,
 } from './auth/verifier.js';
 import type { BillRepo } from './repo.js';
+import { hashPassword, verifyPassword } from './auth/password.js';
+import {
+  createInMemoryUserRepo,
+  normalizeEmail,
+  subFromEmail,
+  type User,
+  type UserRepo,
+} from './users.js';
 import { createNullStore, type FileStore } from './storage/file-store.js';
 
 export interface AppDeps {
   repo: BillRepo;
+  userRepo?: UserRepo;
   parser?: ReceiptParser;
   verifier?: IdentityVerifier;
   jwtSecret?: string;
@@ -173,11 +183,79 @@ export function createApp({
   jwtSecret = 'dev-insecure-secret',
   fileStore = createNullStore(),
   suggester = createMockSuggester(),
+  userRepo = createInMemoryUserRepo(),
 }: AppDeps) {
   const app = new Hono<Env>();
   app.use('*', cors());
 
   app.get('/health', (c) => c.json({ status: 'ok' }));
+
+  /**
+   * 取得(必要时补建)用户记录。
+   * 老 token 与 OAuth/dev 登录都没有 users 行,额度又必须挂在用户上,
+   * 故在此惰性补建 —— 默认 free 套餐,不影响其既有账单归属。
+   */
+  async function ensureUser(sub: string, email: string): Promise<User> {
+    const existing = await userRepo.findById(sub);
+    if (existing) return existing;
+    return userRepo.create({
+      id: sub,
+      email: normalizeEmail(email),
+      passwordHash: null,
+      plan: 'free',
+      createdAt: new Date().toISOString(),
+    });
+  }
+
+  /** 会话响应体:绝不外泄 passwordHash。 */
+  async function sessionBody(user: User) {
+    return {
+      token: await issueToken(
+        { sub: user.id, email: user.email },
+        jwtSecret,
+      ),
+      user: { sub: user.id, email: user.email, plan: user.plan },
+    };
+  }
+
+  // 邮箱+密码注册。生产此前无任何可用登录方式(未配 GOOGLE_CLIENT_ID
+  // 且禁开 ALLOW_DEV_LOGIN),这是第一条能真正注册进来的路径。
+  app.post('/auth/register', async (c) => {
+    const parsed = CredentialsSchema.safeParse(
+      await c.req.json().catch(() => null),
+    );
+    if (!parsed.success) return c.json({ error: parsed.error.issues }, 400);
+    const email = normalizeEmail(parsed.data.email);
+
+    if (await userRepo.findByEmail(email)) {
+      return c.json({ error: '该邮箱已注册,请直接登录' }, 409);
+    }
+    const user = await userRepo.create({
+      id: subFromEmail(email),
+      email,
+      passwordHash: await hashPassword(parsed.data.password),
+      plan: 'free',
+      createdAt: new Date().toISOString(),
+    });
+    return c.json(await sessionBody(user), 201);
+  });
+
+  // 邮箱+密码登录。密码错与账号不存在必须返回**完全相同**的响应,
+  // 否则接口能被用来枚举哪些邮箱已注册。
+  app.post('/auth/login', async (c) => {
+    const parsed = CredentialsSchema.safeParse(
+      await c.req.json().catch(() => null),
+    );
+    if (!parsed.success) return c.json({ error: parsed.error.issues }, 400);
+    const denied = c.json({ error: '邮箱或密码不正确' }, 401);
+
+    const user = await userRepo.findByEmail(parsed.data.email);
+    if (!user?.passwordHash) return denied;
+    if (!(await verifyPassword(parsed.data.password, user.passwordHash))) {
+      return denied;
+    }
+    return c.json(await sessionBody(user));
+  });
 
   // OAuth id token → 应用 JWT(PRD §5.3)。校验交给 verifier(Google/Apple/dev)。
   app.post('/auth/session', async (c) => {

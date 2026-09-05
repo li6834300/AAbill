@@ -167,6 +167,30 @@ export const SessionRequestSchema = z.object({
   idToken: z.string().min(1),
 });
 
+export const PlanSchema = z.enum(['free', 'pro']);
+
+/** 密码下限 8 位:够挡住字典口令,又不至于逼用户去记密码管理器。 */
+export const CredentialsSchema = z.object({
+  email: z.string().trim().toLowerCase().email(),
+  password: z.string().min(8).max(200),
+});
+
+/** 额度状态(GET /me):供界面显示"本月还剩几次"。 */
+export const QuotaViewSchema = z.object({
+  plan: PlanSchema,
+  limit: z.number().int(),
+  used: z.number().int(),
+  remaining: z.number().int(),
+  resetsAt: z.string(),
+});
+
+export const MeSchema = z.object({
+  sub: z.string(),
+  email: z.string(),
+  plan: PlanSchema,
+  quota: QuotaViewSchema,
+});
+
 export const BillSchema = z.object({
   id: z.string(),
   /** 归属 Owner(JWT sub);Participant 无归属 */
@@ -243,6 +267,10 @@ export type FamilyClaimView = z.infer<typeof FamilyClaimViewSchema>;
 export type ShareSummary = z.infer<typeof ShareSummarySchema>;
 export type AuthUser = z.infer<typeof AuthUserSchema>;
 export type SessionRequest = z.infer<typeof SessionRequestSchema>;
+export type Plan = z.infer<typeof PlanSchema>;
+export type Credentials = z.infer<typeof CredentialsSchema>;
+export type QuotaView = z.infer<typeof QuotaViewSchema>;
+export type Me = z.infer<typeof MeSchema>;
 export type PrintedTotals = z.infer<typeof PrintedTotalsSchema>;
 export type Bill = z.infer<typeof BillSchema>;
 export type ParsedItem = z.infer<typeof ParsedItemSchema>;
