@@ -27,16 +27,24 @@ const RECEIPT: ParsedReceipt = {
   totals: { net: '1.00', vatA: '0.00', vatB: '0.09', gross: '1.09' },
 };
 
-const okParser: ReceiptParser = { async parseReceipt() { return RECEIPT; } };
+const okParser: ReceiptParser = {
+  async parseReceipt() {
+    return RECEIPT;
+  },
+};
 const failParser: ReceiptParser = {
-  async parseReceipt() { throw new Error('AI 挂了'); },
+  async parseReceipt() {
+    throw new Error('AI 挂了');
+  },
 };
 
-function makeApp(opts: {
-  parser?: ReceiptParser;
-  userRepo?: UserRepo;
-  now?: () => Date;
-} = {}) {
+function makeApp(
+  opts: {
+    parser?: ReceiptParser;
+    userRepo?: UserRepo;
+    now?: () => Date;
+  } = {},
+) {
   return createApp({
     repo: createInMemoryRepo(),
     userRepo: opts.userRepo ?? createInMemoryUserRepo(),
@@ -48,7 +56,11 @@ function makeApp(opts: {
 
 type App = ReturnType<typeof makeApp>;
 
-const post = (path: string, body: unknown, headers: Record<string, string> = {}) =>
+const post = (
+  path: string,
+  body: unknown,
+  headers: Record<string, string> = {},
+) =>
   new Request(`http://x${path}`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', ...headers },
@@ -91,7 +103,8 @@ describe('识别额度扣减', () => {
   it('免费用户第 3 次识别被拒(402)', async () => {
     const app = makeApp();
     const token = await register(app);
-    for (let i = 0; i < 2; i++) await parse(app, token, await newBill(app, token));
+    for (let i = 0; i < 2; i++)
+      await parse(app, token, await newBill(app, token));
     const res = await parse(app, token, await newBill(app, token));
     expect(res.status).toBe(402);
     const body = await j<{ error: string; quota?: { remaining: number } }>(res);
@@ -108,20 +121,28 @@ describe('识别额度扣减', () => {
       expect((await parse(app, token, billId)).status).toBe(200);
     }
     // 只吃掉 1 个额度,还能再识别一张新单
-    expect((await parse(app, token, await newBill(app, token))).status).toBe(200);
+    expect((await parse(app, token, await newBill(app, token))).status).toBe(
+      200,
+    );
     // 此时 2 个额度用尽,第三张单被拒
-    expect((await parse(app, token, await newBill(app, token))).status).toBe(402);
+    expect((await parse(app, token, await newBill(app, token))).status).toBe(
+      402,
+    );
   });
 
   it('AI 识别失败不扣额度', async () => {
     const app = makeApp({ parser: failParser });
     const token = await register(app);
     for (let i = 0; i < 3; i++) {
-      expect((await parse(app, token, await newBill(app, token))).status).toBe(502);
+      expect((await parse(app, token, await newBill(app, token))).status).toBe(
+        502,
+      );
     }
     const me = await j<{ quota: { used: number } }>(
       await app.request(
-        new Request('http://x/me', { headers: { authorization: `Bearer ${token}` } }),
+        new Request('http://x/me', {
+          headers: { authorization: `Bearer ${token}` },
+        }),
       ),
     );
     expect(me.quota.used).toBe(0);
@@ -135,20 +156,29 @@ describe('识别额度扣减', () => {
     await userRepo.save({ ...user!, plan: 'pro' });
 
     for (let i = 0; i < 20; i++) {
-      expect((await parse(app, token, await newBill(app, token))).status).toBe(200);
+      expect((await parse(app, token, await newBill(app, token))).status).toBe(
+        200,
+      );
     }
-    expect((await parse(app, token, await newBill(app, token))).status).toBe(402);
+    expect((await parse(app, token, await newBill(app, token))).status).toBe(
+      402,
+    );
   });
 
   it('跨月后额度重置', async () => {
     let clock = new Date('2026-09-20T10:00:00Z');
     const app = makeApp({ now: () => clock });
     const token = await register(app);
-    for (let i = 0; i < 2; i++) await parse(app, token, await newBill(app, token));
-    expect((await parse(app, token, await newBill(app, token))).status).toBe(402);
+    for (let i = 0; i < 2; i++)
+      await parse(app, token, await newBill(app, token));
+    expect((await parse(app, token, await newBill(app, token))).status).toBe(
+      402,
+    );
 
     clock = new Date('2026-10-01T00:00:01Z'); // 次月
-    expect((await parse(app, token, await newBill(app, token))).status).toBe(200);
+    expect((await parse(app, token, await newBill(app, token))).status).toBe(
+      200,
+    );
   });
 });
 
@@ -159,13 +189,20 @@ describe('GET /me', () => {
     await parse(app, token, await newBill(app, token));
 
     const res = await app.request(
-      new Request('http://x/me', { headers: { authorization: `Bearer ${token}` } }),
+      new Request('http://x/me', {
+        headers: { authorization: `Bearer ${token}` },
+      }),
     );
     expect(res.status).toBe(200);
     const me = await j<{
       email: string;
       plan: string;
-      quota: { limit: number; used: number; remaining: number; resetsAt: string };
+      quota: {
+        limit: number;
+        used: number;
+        remaining: number;
+        resetsAt: string;
+      };
     }>(res);
     expect(me.email).toBe('quota@example.com');
     expect(me.plan).toBe('free');
@@ -183,7 +220,9 @@ describe('GET /me', () => {
     const token = await register(app);
     const raw = await (
       await app.request(
-        new Request('http://x/me', { headers: { authorization: `Bearer ${token}` } }),
+        new Request('http://x/me', {
+          headers: { authorization: `Bearer ${token}` },
+        }),
       )
     ).text();
     expect(raw).not.toContain('scrypt$');

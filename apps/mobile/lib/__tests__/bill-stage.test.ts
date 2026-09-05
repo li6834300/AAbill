@@ -16,6 +16,7 @@ const base: Bill = {
   createdAt: '2026-08-03',
   shareToken: 'tok',
   invoiceUrl: null,
+  quotaChargedAt: null,
   printedTotals: null,
   items: [],
   families: [],

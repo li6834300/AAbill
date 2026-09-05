@@ -1,7 +1,22 @@
-import { randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
-import { promisify } from 'node:util';
+import {
+  randomBytes,
+  scrypt,
+  timingSafeEqual,
+  type ScryptOptions,
+} from 'node:crypto';
 
-const scryptAsync = promisify(scrypt);
+// 不用 promisify:它的类型推断只认 3 参重载,带 options 会报 TS2554。
+const scryptAsync = (
+  password: string,
+  salt: Buffer,
+  keylen: number,
+  options: ScryptOptions,
+): Promise<Buffer> =>
+  new Promise((resolve, reject) => {
+    scrypt(password, salt, keylen, options, (err, key) =>
+      err ? reject(err) : resolve(key),
+    );
+  });
 
 // scrypt 参数。N 越大越抗暴力破解,代价是每次登录的内存与耗时。
 // N=32768,r=8 约需 128*N*r = 32MB,故 maxmem 放到 64MB(Node 默认 32MB 会直接报错)。
@@ -15,12 +30,12 @@ const SALT_BYTES = 16;
 /** 存储格式:scrypt$<N>$<r>$<saltHex>$<hashHex> —— 参数随值走,日后调参不影响旧记录。 */
 export async function hashPassword(plain: string): Promise<string> {
   const salt = randomBytes(SALT_BYTES);
-  const key = (await scryptAsync(plain, salt, KEYLEN, {
+  const key = await scryptAsync(plain, salt, KEYLEN, {
     N,
     r: R,
     p: P,
     maxmem: MAXMEM,
-  })) as Buffer;
+  });
   return `scrypt$${N}$${R}$${salt.toString('hex')}$${key.toString('hex')}`;
 }
 
@@ -36,6 +51,14 @@ export async function verifyPassword(
   if (parts.length !== 5) return false;
   const [scheme, nRaw, rRaw, saltHex, hashHex] = parts;
   if (scheme !== 'scrypt') return false;
+  if (
+    nRaw === undefined ||
+    rRaw === undefined ||
+    saltHex === undefined ||
+    hashHex === undefined
+  ) {
+    return false;
+  }
 
   const n = Number(nRaw);
   const r = Number(rRaw);
@@ -54,12 +77,12 @@ export async function verifyPassword(
   if (salt.length === 0 || expected.length === 0) return false;
 
   try {
-    const key = (await scryptAsync(plain, salt, expected.length, {
+    const key = await scryptAsync(plain, salt, expected.length, {
       N: n,
       r,
       p: P,
       maxmem: MAXMEM,
-    })) as Buffer;
+    });
     // 定长比较走 timingSafeEqual,避免按字节短路泄露信息
     return timingSafeEqual(key, expected);
   } catch {

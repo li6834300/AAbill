@@ -55,7 +55,12 @@ describe('额度策略', () => {
 
     it('免费用户没用过:剩 2,可用', () => {
       const s = quotaStatus('free', 0, now);
-      expect(s).toMatchObject({ limit: 2, used: 0, remaining: 2, canConsume: true });
+      expect(s).toMatchObject({
+        limit: 2,
+        used: 0,
+        remaining: 2,
+        canConsume: true,
+      });
     });
 
     it('免费用户用了 1:剩 1,可用', () => {

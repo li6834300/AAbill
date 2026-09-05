@@ -21,6 +21,7 @@ interface BillRow {
   invoice_vat_b_cents: number | null;
   invoice_gross_cents: number | null;
   created_at: Date;
+  quota_charged_at: Date | null;
 }
 
 export function createPostgresRepo(pool: Pool): BillRepo {
@@ -87,6 +88,7 @@ export function createPostgresRepo(pool: Pool): BillRepo {
           : { A: row.tax_rate_a_bp, B: row.tax_rate_b_bp },
       status: row.status,
       createdAt: row.created_at.toISOString(),
+      quotaChargedAt: row.quota_charged_at?.toISOString() ?? null,
       shareToken: row.share_token,
       invoiceUrl: row.invoice_url,
       printedTotals:
@@ -153,8 +155,8 @@ export function createPostgresRepo(pool: Pool): BillRepo {
            (id, owner_id, title, status, tax_country, share_token, invoice_url,
             invoice_net_cents, invoice_vat_a_cents, invoice_vat_b_cents,
             invoice_gross_cents, created_at, tax_rate_a_bp, tax_rate_b_bp,
-            translation_lang)
-         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+            translation_lang, quota_charged_at)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
          on conflict (id) do update set
            title = excluded.title,
            status = excluded.status,
@@ -166,7 +168,9 @@ export function createPostgresRepo(pool: Pool): BillRepo {
            invoice_net_cents = excluded.invoice_net_cents,
            invoice_vat_a_cents = excluded.invoice_vat_a_cents,
            invoice_vat_b_cents = excluded.invoice_vat_b_cents,
-           invoice_gross_cents = excluded.invoice_gross_cents`,
+           invoice_gross_cents = excluded.invoice_gross_cents,
+           -- 额度扣减标记一旦落下就不再回退,避免重识别把已扣的单洗白
+           quota_charged_at = coalesce(bills.quota_charged_at, excluded.quota_charged_at)`,
         [
           bill.id,
           bill.ownerId,
@@ -183,6 +187,7 @@ export function createPostgresRepo(pool: Pool): BillRepo {
           bill.taxRates?.A ?? null,
           bill.taxRates?.B ?? null,
           bill.translationLang,
+          bill.quotaChargedAt,
         ],
       );
       await writeChildren(client, bill);
@@ -203,6 +208,14 @@ export function createPostgresRepo(pool: Pool): BillRepo {
   return {
     create: upsert,
     save: upsert,
+    async countChargedSince(ownerId, sinceIso) {
+      const { rows } = await pool.query<{ n: string }>(
+        `select count(*)::text as n from bills
+          where owner_id = $1 and quota_charged_at >= $2`,
+        [ownerId, sinceIso],
+      );
+      return Number(rows[0]?.n ?? 0);
+    },
     async get(id) {
       if (!UUID_RE.test(id)) return undefined;
       const { rows } = await pool.query<BillRow>(

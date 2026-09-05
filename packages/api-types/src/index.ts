@@ -208,6 +208,11 @@ export const BillSchema = z.object({
   shareToken: z.string(),
   /** 原始发票文件 URL(Cloudinary);未上传/未配置存储时为 null */
   invoiceUrl: z.string().nullable(),
+  /**
+   * 首次成功 AI 识别的时刻(ISO);null = 还没扣过额度。
+   * 额度挂在账单上而非调用次数上 —— 同一单重识别不重复扣减。
+   */
+  quotaChargedAt: z.string().nullable(),
   printedTotals: PrintedTotalsSchema.nullable(),
   items: z.array(ItemSchema),
   families: z.array(FamilySchema),

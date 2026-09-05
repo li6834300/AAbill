@@ -7,6 +7,11 @@ export interface BillRepo {
   getByToken(shareToken: string): Promise<Bill | undefined>;
   list(): Promise<Bill[]>;
   save(bill: Bill): Promise<Bill>;
+  /**
+   * 统计某 Owner 自 sinceIso 起已扣额度的账单数(= 本计费期已用次数)。
+   * 扣减记在 bill.quotaChargedAt 上,故重识别同一单不会被重复计入。
+   */
+  countChargedSince(ownerId: string, sinceIso: string): Promise<number>;
 }
 
 export function createInMemoryRepo(): BillRepo {
@@ -28,6 +33,14 @@ export function createInMemoryRepo(): BillRepo {
     async save(bill) {
       bills.set(bill.id, bill);
       return bill;
+    },
+    async countChargedSince(ownerId, sinceIso) {
+      return [...bills.values()].filter(
+        (b) =>
+          b.ownerId === ownerId &&
+          b.quotaChargedAt !== null &&
+          b.quotaChargedAt >= sinceIso,
+      ).length;
     },
   };
 }

@@ -8,7 +8,11 @@ import { createInMemoryUserRepo } from '../src/users.js';
 const SECRET = 'test-secret-please-rotate';
 const j = <T>(r: Response) => r.json() as Promise<T>;
 
-const post = (path: string, body: unknown, headers: Record<string, string> = {}) =>
+const post = (
+  path: string,
+  body: unknown,
+  headers: Record<string, string> = {},
+) =>
   new Request(`http://x${path}`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', ...headers },
@@ -22,13 +26,19 @@ const makeApp = () =>
     jwtSecret: SECRET,
   });
 
-type SessionRes = { token: string; user: { sub: string; email: string; plan: string } };
+type SessionRes = {
+  token: string;
+  user: { sub: string; email: string; plan: string };
+};
 
 describe('邮箱密码注册', () => {
   it('注册成功返回 JWT 与用户,默认 free 套餐', async () => {
     const app = makeApp();
     const res = await app.request(
-      post('/auth/register', { email: 'new@example.com', password: 'goodpassword' }),
+      post('/auth/register', {
+        email: 'new@example.com',
+        password: 'goodpassword',
+      }),
     );
     expect(res.status).toBe(201);
     const body = await j<SessionRes>(res);
@@ -41,11 +51,16 @@ describe('邮箱密码注册', () => {
     const app = makeApp();
     const { token } = await j<SessionRes>(
       await app.request(
-        post('/auth/register', { email: 'a@example.com', password: 'goodpassword' }),
+        post('/auth/register', {
+          email: 'a@example.com',
+          password: 'goodpassword',
+        }),
       ),
     );
     const res = await app.request(
-      new Request('http://x/bills', { headers: { authorization: `Bearer ${token}` } }),
+      new Request('http://x/bills', {
+        headers: { authorization: `Bearer ${token}` },
+      }),
     );
     expect(res.status).toBe(200);
   });
@@ -60,10 +75,16 @@ describe('邮箱密码注册', () => {
   it('邮箱大小写与首尾空格规范化后仍算重复', async () => {
     const app = makeApp();
     await app.request(
-      post('/auth/register', { email: 'Case@Example.com', password: 'goodpassword' }),
+      post('/auth/register', {
+        email: 'Case@Example.com',
+        password: 'goodpassword',
+      }),
     );
     const res = await app.request(
-      post('/auth/register', { email: '  case@example.COM  ', password: 'goodpassword' }),
+      post('/auth/register', {
+        email: '  case@example.COM  ',
+        password: 'goodpassword',
+      }),
     );
     expect(res.status).toBe(409);
   });
@@ -71,7 +92,10 @@ describe('邮箱密码注册', () => {
   it('密码短于 8 位返回 400', async () => {
     const app = makeApp();
     const res = await app.request(
-      post('/auth/register', { email: 'short@example.com', password: 'abc123' }),
+      post('/auth/register', {
+        email: 'short@example.com',
+        password: 'abc123',
+      }),
     );
     expect(res.status).toBe(400);
   });
@@ -79,7 +103,10 @@ describe('邮箱密码注册', () => {
   it('邮箱格式非法返回 400', async () => {
     const app = makeApp();
     const res = await app.request(
-      post('/auth/register', { email: 'not-an-email', password: 'goodpassword' }),
+      post('/auth/register', {
+        email: 'not-an-email',
+        password: 'goodpassword',
+      }),
     );
     expect(res.status).toBe(400);
   });
@@ -88,7 +115,10 @@ describe('邮箱密码注册', () => {
     const app = makeApp();
     const raw = await (
       await app.request(
-        post('/auth/register', { email: 'leak@example.com', password: 'goodpassword' }),
+        post('/auth/register', {
+          email: 'leak@example.com',
+          password: 'goodpassword',
+        }),
       )
     ).text();
     expect(raw).not.toContain('goodpassword');
@@ -123,7 +153,10 @@ describe('邮箱密码登录', () => {
   it('邮箱不存在返回 401', async () => {
     const app = await appWithUser();
     const res = await app.request(
-      post('/auth/login', { email: 'nobody@example.com', password: 'goodpassword' }),
+      post('/auth/login', {
+        email: 'nobody@example.com',
+        password: 'goodpassword',
+      }),
     );
     expect(res.status).toBe(401);
   });
@@ -135,7 +168,10 @@ describe('邮箱密码登录', () => {
       post('/auth/login', { ...creds, password: 'wrongpassword' }),
     );
     const noUser = await app.request(
-      post('/auth/login', { email: 'nobody@example.com', password: 'goodpassword' }),
+      post('/auth/login', {
+        email: 'nobody@example.com',
+        password: 'goodpassword',
+      }),
     );
     expect(wrongPass.status).toBe(noUser.status);
     expect(await wrongPass.text()).toBe(await noUser.text());
@@ -144,18 +180,27 @@ describe('邮箱密码登录', () => {
   it('登录邮箱大小写不敏感', async () => {
     const app = await appWithUser();
     const res = await app.request(
-      post('/auth/login', { email: 'USER@EXAMPLE.COM', password: creds.password }),
+      post('/auth/login', {
+        email: 'USER@EXAMPLE.COM',
+        password: creds.password,
+      }),
     );
     expect(res.status).toBe(200);
   });
 
   it('同一账号两次登录都能拿到可用 token', async () => {
     const app = await appWithUser();
-    const first = await j<SessionRes>(await app.request(post('/auth/login', creds)));
-    const second = await j<SessionRes>(await app.request(post('/auth/login', creds)));
+    const first = await j<SessionRes>(
+      await app.request(post('/auth/login', creds)),
+    );
+    const second = await j<SessionRes>(
+      await app.request(post('/auth/login', creds)),
+    );
     for (const tk of [first.token, second.token]) {
       const res = await app.request(
-        new Request('http://x/bills', { headers: { authorization: `Bearer ${tk}` } }),
+        new Request('http://x/bills', {
+          headers: { authorization: `Bearer ${tk}` },
+        }),
       );
       expect(res.status).toBe(200);
     }
@@ -165,7 +210,9 @@ describe('邮箱密码登录', () => {
   // 这样同一邮箱在本地 dev 登录期间建的账单,注册后仍归属本人。
   it('sub 由邮箱推导,与 dev-login 一致', async () => {
     const app = await appWithUser();
-    const viaLogin = await j<SessionRes>(await app.request(post('/auth/login', creds)));
+    const viaLogin = await j<SessionRes>(
+      await app.request(post('/auth/login', creds)),
+    );
     const devApp = createApp({
       repo: createInMemoryRepo(),
       userRepo: createInMemoryUserRepo(),
@@ -178,7 +225,9 @@ describe('邮箱密码登录', () => {
       },
     });
     const viaDev = await j<SessionRes>(
-      await devApp.request(post('/auth/session', { provider: 'dev', idToken: creds.email })),
+      await devApp.request(
+        post('/auth/session', { provider: 'dev', idToken: creds.email }),
+      ),
     );
     expect(viaLogin.user.sub).toBe(viaDev.user.sub);
   });

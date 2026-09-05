@@ -81,7 +81,13 @@ describe('POST /auth/session', () => {
   it('有效 id token → 签发 app JWT + 用户', async () => {
     const app = makeApp();
     const { token, user } = await login(app, 'tok-alice');
-    expect(user).toEqual({ sub: 'alice', email: 'alice@example.com' });
+    // 会话响应新增 plan:三条登录路径(dev/Google/邮箱密码)都收敛到用户行,
+    // 界面据此显示套餐与本月额度。仍用严格相等,防止多带出 passwordHash 等字段。
+    expect(user).toEqual({
+      sub: 'alice',
+      email: 'alice@example.com',
+      plan: 'free',
+    });
     expect(await verifyToken(token, SECRET)).toMatchObject({ sub: 'alice' });
   });
 
