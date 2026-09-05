@@ -1,9 +1,12 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { FlatList, Platform, Pressable, StyleSheet, View } from 'react-native';
+import type { Me } from '@aabill/api-types';
 import { api, type BillSummary } from '../lib/api';
 import { LanguagePicker } from '../components/LanguagePicker';
 import { useLang } from '../lib/use-lang';
+import { AuthCard } from '../components/AuthCard';
+import { QuotaBadge } from '../components/QuotaBadge';
 import { clearToken, getToken } from '../lib/auth';
 import { Button, Card, Input, Screen, Text } from '../components/ui';
 import { ChevronRight, Receipt } from '../components/icons';
@@ -11,7 +14,8 @@ import { ReceiptMascot } from '../components/characters/ReceiptMascot';
 import { color, radius, space } from '../theme/tokens';
 
 const GOOGLE_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID;
-// 配了 Google client id 且在网页端 → 用 Google 登录;否则回退开发登录(本地)。
+// 配了 Google client id 且在网页端 → 额外提供 Google 登录。
+// 邮箱+密码始终可用,是主路径(生产此前无任何可用登录方式,见 migration 0007)。
 const USE_GOOGLE = !!GOOGLE_CLIENT_ID && Platform.OS === 'web';
 
 const STATUS_TONE: Record<string, 'primary' | 'muted' | 'faint'> = {
@@ -29,7 +33,9 @@ export default function BillListScreen() {
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [authed, setAuthed] = useState(() => getToken() !== null);
-  const [email, setEmail] = useState('');
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [authBusy, setAuthBusy] = useState(false);
+  const [me, setMe] = useState<Me | null>(null);
   const googleBtnRef = useRef<View>(null);
 
   const load = useCallback(() => {
@@ -41,23 +47,36 @@ export default function BillListScreen() {
       .listBills()
       .then(({ bills }) => setBills(bills))
       .catch((e) => setError(String(e)));
+    // 额度独立取:取失败不该挡住账单列表
+    api
+      .me()
+      .then(setMe)
+      .catch(() => setMe(null));
   }, []);
   useFocusEffect(load);
 
   const onLoggedIn = useCallback(() => {
-    setEmail('');
     setError(null);
+    setAuthError(null);
     setAuthed(true);
     load();
   }, [load]);
 
-  const doLogin = async () => {
-    if (!email.trim()) return;
+  const doAuth = async (
+    mode: 'login' | 'register',
+    mail: string,
+    password: string,
+  ) => {
+    setAuthBusy(true);
+    setAuthError(null);
     try {
-      await api.login(email.trim());
+      if (mode === 'register') await api.register(mail, password);
+      else await api.loginWithPassword(mail, password);
       onLoggedIn();
     } catch (e) {
-      setError(String(e));
+      setAuthError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setAuthBusy(false);
     }
   };
 
@@ -86,6 +105,7 @@ export default function BillListScreen() {
     clearToken();
     setAuthed(false);
     setBills([]);
+    setMe(null);
   };
 
   if (!authed) {
@@ -111,29 +131,16 @@ export default function BillListScreen() {
             {error}
           </Text>
         )}
-        {USE_GOOGLE ? (
+        {USE_GOOGLE && (
           <>
             <Text variant="muted" tone="muted">
               {t('login.google')}
             </Text>
             <View ref={googleBtnRef} style={styles.googleBtn} />
           </>
-        ) : (
-          <Card style={styles.loginCard}>
-            <Text variant="label" tone="muted">
-              {t('login.devHint')}
-            </Text>
-            <Input
-              value={email}
-              onChangeText={setEmail}
-              placeholder="you@example.com"
-              autoCapitalize="none"
-              keyboardType="email-address"
-              onSubmitEditing={doLogin}
-            />
-            <Button label={t('login.submit')} onPress={doLogin} fullWidth />
-          </Card>
         )}
+        {/* 邮箱+密码是主路径:配了 Google 也保留,免得只认一种方式的人进不来 */}
+        <AuthCard onSubmit={doAuth} error={authError} busy={authBusy} />
       </Screen>
     );
   }
@@ -159,6 +166,7 @@ export default function BillListScreen() {
         </Text>
         <Button label={t('bills.logout')} variant="ghost" onPress={logout} />
       </View>
+      {me && <QuotaBadge quota={me.quota} />}
       <LanguagePicker />
 
       {error && (

@@ -204,6 +204,20 @@ const zh = {
   'signin.claimerHint':
     '如果你是受邀来认领账单的,请向发起人索取「认领链接」(网址里带 /b/),这个管理链接不能用来认领。',
   'signin.action': '去登录',
+  'auth.login': '登录',
+  'auth.register': '注册',
+  'auth.emailPlaceholder': '你的邮箱',
+  'auth.passwordPlaceholder': '密码',
+  'auth.submitLogin': '登录',
+  'auth.submitRegister': '免费注册',
+  'auth.toRegister': '还没有账号?免费注册',
+  'auth.toLogin': '已有账号?去登录',
+  'auth.passwordTooShort': '密码至少 8 位',
+  'auth.freeHint': '注册免费。登录后每月有免费的 AI 识别额度。',
+  'quota.remaining': '本月还剩 {n} 次 AI 识别',
+  'quota.exhausted': '本月 AI 识别额度已用完',
+  'quota.resets': '{date} 恢复',
+  'quota.proHint': '升级 PRO 可获得更多额度',
   'lang.label': '语言',
 } as const;
 
@@ -413,6 +427,20 @@ const en: Catalog = {
   'signin.claimerHint':
     'If you were invited to claim items, ask the organiser for the claim link (its URL contains /b/). This management link cannot be used to claim.',
   'signin.action': 'Sign in',
+  'auth.login': 'Sign in',
+  'auth.register': 'Sign up',
+  'auth.emailPlaceholder': 'Your email',
+  'auth.passwordPlaceholder': 'Password',
+  'auth.submitLogin': 'Sign in',
+  'auth.submitRegister': 'Sign up free',
+  'auth.toRegister': 'No account yet? Sign up free',
+  'auth.toLogin': 'Already have an account? Sign in',
+  'auth.passwordTooShort': 'Password must be at least 8 characters',
+  'auth.freeHint': 'Signing up is free. You get a monthly AI scan allowance.',
+  'quota.remaining': '{n} AI scans left this month',
+  'quota.exhausted': 'Monthly AI scan allowance used up',
+  'quota.resets': 'Resets {date}',
+  'quota.proHint': 'Upgrade to PRO for more',
   'lang.label': 'Language',
 };
 
@@ -625,6 +653,21 @@ const nl: Catalog = {
   'signin.claimerHint':
     'Ben je uitgenodigd om te claimen? Vraag de organisator om de claimlink (met /b/ in de URL). Deze beheerlink kun je niet gebruiken om te claimen.',
   'signin.action': 'Inloggen',
+  'auth.login': 'Inloggen',
+  'auth.register': 'Registreren',
+  'auth.emailPlaceholder': 'Je e-mailadres',
+  'auth.passwordPlaceholder': 'Wachtwoord',
+  'auth.submitLogin': 'Inloggen',
+  'auth.submitRegister': 'Gratis registreren',
+  'auth.toRegister': 'Nog geen account? Gratis registreren',
+  'auth.toLogin': 'Al een account? Inloggen',
+  'auth.passwordTooShort': 'Wachtwoord moet minstens 8 tekens zijn',
+  'auth.freeHint':
+    'Registreren is gratis. Je krijgt maandelijks gratis AI-scans.',
+  'quota.remaining': 'Nog {n} AI-scans deze maand',
+  'quota.exhausted': 'Maandelijkse AI-scans op',
+  'quota.resets': 'Weer beschikbaar op {date}',
+  'quota.proHint': 'Upgrade naar PRO voor meer',
   'lang.label': 'Taal',
 };
 
@@ -840,6 +883,21 @@ const de: Catalog = {
   'signin.claimerHint':
     'Wenn du zum Beanspruchen eingeladen wurdest, bitte den Organisator um den Anspruchslink (mit /b/ in der URL). Dieser Verwaltungslink funktioniert dafür nicht.',
   'signin.action': 'Anmelden',
+  'auth.login': 'Anmelden',
+  'auth.register': 'Registrieren',
+  'auth.emailPlaceholder': 'Deine E-Mail',
+  'auth.passwordPlaceholder': 'Passwort',
+  'auth.submitLogin': 'Anmelden',
+  'auth.submitRegister': 'Kostenlos registrieren',
+  'auth.toRegister': 'Noch kein Konto? Kostenlos registrieren',
+  'auth.toLogin': 'Schon ein Konto? Anmelden',
+  'auth.passwordTooShort': 'Passwort muss mindestens 8 Zeichen haben',
+  'auth.freeHint':
+    'Registrierung ist kostenlos. Monatlich gibt es Gratis-KI-Scans.',
+  'quota.remaining': 'Noch {n} KI-Scans diesen Monat',
+  'quota.exhausted': 'Monatliche KI-Scans aufgebraucht',
+  'quota.resets': 'Zurückgesetzt am {date}',
+  'quota.proHint': 'PRO bietet mehr Kontingent',
   'lang.label': 'Sprache',
 };
 
