@@ -18,7 +18,9 @@ describe('VerificationNotice', () => {
   it('说明要去邮箱点链接', () => {
     setLang('zh');
     render(<VerificationNotice email="a@example.com" onResend={jest.fn()} />);
-    expect(screen.getByText(/验证/)).toBeTruthy();
+    // 指名道姓:标题与正文都含"验证"二字,泛匹配会撞多个节点
+    expect(screen.getByText(/点击信里的链接即可完成注册/)).toBeTruthy();
+    expect(screen.getByText(/垃圾邮件箱/)).toBeTruthy();
   });
 
   it('点重发 → 回调', () => {
@@ -35,13 +37,14 @@ describe('VerificationNotice', () => {
       <VerificationNotice email="a@example.com" onResend={jest.fn()} resent />,
     );
     expect(screen.getByText(/已重新发送/)).toBeTruthy();
-    expect(screen.getByTestId('resend-verification').props.accessibilityState)
-      .toMatchObject({ disabled: true });
+    expect(
+      screen.getByTestId('resend-verification').props.accessibilityState,
+    ).toMatchObject({ disabled: true });
   });
 
   it('跟随界面语言(德语)', () => {
     setLang('de');
     render(<VerificationNotice email="a@example.com" onResend={jest.fn()} />);
-    expect(screen.getByText(/E-Mail/)).toBeTruthy();
+    expect(screen.getByText('Schau in deine E-Mail')).toBeTruthy();
   });
 });

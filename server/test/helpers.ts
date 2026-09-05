@@ -1,9 +1,8 @@
 import type { ReceiptParser } from '../src/ai/provider.js';
 import { createApp } from '../src/app.js';
 import { createMockVerifier } from '../src/auth/verifier.js';
-import { createCaptureMailer, type CaptureMailer } from '../src/mail/mailer.js';
+import type { CaptureMailer } from '../src/mail/mailer.js';
 import { createInMemoryRepo, type BillRepo } from '../src/repo.js';
-import { createInMemoryUserRepo, type UserRepo } from '../src/users.js';
 import type { ClaimSuggester } from '../src/ai/suggester.js';
 import type { FileStore } from '../src/storage/file-store.js';
 

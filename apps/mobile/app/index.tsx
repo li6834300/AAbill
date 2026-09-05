@@ -2,10 +2,11 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { FlatList, Platform, Pressable, StyleSheet, View } from 'react-native';
 import type { Me } from '@aabill/api-types';
-import { api, type BillSummary } from '../lib/api';
+import { api, NeedsVerificationError, type BillSummary } from '../lib/api';
 import { LanguagePicker } from '../components/LanguagePicker';
 import { useLang } from '../lib/use-lang';
 import { AuthCard } from '../components/AuthCard';
+import { VerificationNotice } from '../components/VerificationNotice';
 import { QuotaBadge } from '../components/QuotaBadge';
 import { clearToken, getToken } from '../lib/auth';
 import { Button, Card, Input, Screen, Text } from '../components/ui';
@@ -34,6 +35,9 @@ export default function BillListScreen() {
   const [error, setError] = useState<string | null>(null);
   const [authed, setAuthed] = useState(() => getToken() !== null);
   const [authError, setAuthError] = useState<string | null>(null);
+  // 非 null = 注册已受理或登录时发现未验证,此时展示"去邮箱验证"而非登录表单
+  const [pendingEmail, setPendingEmail] = useState<string | null>(null);
+  const [resent, setResent] = useState(false);
   const [authBusy, setAuthBusy] = useState(false);
   const [me, setMe] = useState<Me | null>(null);
   const googleBtnRef = useRef<View>(null);
@@ -58,6 +62,7 @@ export default function BillListScreen() {
   const onLoggedIn = useCallback(() => {
     setError(null);
     setAuthError(null);
+    setPendingEmail(null);
     setAuthed(true);
     load();
   }, [load]);
@@ -70,14 +75,32 @@ export default function BillListScreen() {
     setAuthBusy(true);
     setAuthError(null);
     try {
-      if (mode === 'register') await api.register(mail, password);
-      else await api.loginWithPassword(mail, password);
+      if (mode === 'register') {
+        // 注册不再直接登录:必须先去邮箱点验证链接
+        await api.register(mail, password);
+        setPendingEmail(mail);
+        setResent(false);
+        return;
+      }
+      await api.loginWithPassword(mail, password);
       onLoggedIn();
     } catch (e) {
+      // 已注册但没验证 → 引导去验证,而不是把它当成一条普通错误
+      if (e instanceof NeedsVerificationError) {
+        setPendingEmail(mail);
+        setResent(false);
+        return;
+      }
       setAuthError(e instanceof Error ? e.message : String(e));
     } finally {
       setAuthBusy(false);
     }
+  };
+
+  const doResend = async () => {
+    if (!pendingEmail) return;
+    await api.resendVerification(pendingEmail);
+    setResent(true);
   };
 
   // Google 登录:在按钮容器里渲染 GIS 按钮,拿到 id token 后换本站 JWT。
@@ -139,8 +162,16 @@ export default function BillListScreen() {
             <View ref={googleBtnRef} style={styles.googleBtn} />
           </>
         )}
-        {/* 邮箱+密码是主路径:配了 Google 也保留,免得只认一种方式的人进不来 */}
-        <AuthCard onSubmit={doAuth} error={authError} busy={authBusy} />
+        {pendingEmail ? (
+          <VerificationNotice
+            email={pendingEmail}
+            onResend={doResend}
+            resent={resent}
+          />
+        ) : (
+          /* 邮箱+密码是主路径:配了 Google 也保留,免得只认一种方式的人进不来 */
+          <AuthCard onSubmit={doAuth} error={authError} busy={authBusy} />
+        )}
       </Screen>
     );
   }
