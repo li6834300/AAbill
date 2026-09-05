@@ -7,6 +7,8 @@ import { createApp } from './app.js';
 import { migrate } from './db/migrate.js';
 import { createPostgresRepo } from './db/pg-repo.js';
 import { createInMemoryRepo, type BillRepo } from './repo.js';
+import { createInMemoryUserRepo, type UserRepo } from './users.js';
+import { createPostgresUserRepo } from './db/pg-user-repo.js';
 import { selectFileStore } from './storage/file-store.js';
 
 const port = Number(process.env.PORT ?? 3000);
@@ -20,10 +22,18 @@ if (!jwtSecret) {
   console.warn('⚠️ 未设置 JWT_SECRET,使用不安全的默认值(生产必须配置)');
 }
 
-async function makeRepo(): Promise<{ repoKind: string; repo: BillRepo }> {
+async function makeRepo(): Promise<{
+  repoKind: string;
+  repo: BillRepo;
+  userRepo: UserRepo;
+}> {
   const url = process.env.DATABASE_URL;
   if (!url)
-    return { repoKind: 'in-memory(重启即丢)', repo: createInMemoryRepo() };
+    return {
+      repoKind: 'in-memory(重启即丢)',
+      repo: createInMemoryRepo(),
+      userRepo: createInMemoryUserRepo(),
+    };
   const isLocal = url.includes('localhost') || url.includes('127.0.0.1');
   const pool = new Pool({
     connectionString: url,
@@ -31,12 +41,17 @@ async function makeRepo(): Promise<{ repoKind: string; repo: BillRepo }> {
     ...(isLocal ? {} : { ssl: { rejectUnauthorized: false } }),
   });
   await migrate(pool);
-  return { repoKind: 'postgres', repo: createPostgresRepo(pool) };
+  return {
+    repoKind: 'postgres',
+    repo: createPostgresRepo(pool),
+    userRepo: createPostgresUserRepo(pool),
+  };
 }
 
-const { repoKind, repo } = await makeRepo();
+const { repoKind, repo, userRepo } = await makeRepo();
 const app = createApp({
   repo,
+  userRepo,
   parser,
   verifier,
   fileStore,

@@ -4,6 +4,7 @@ import type {
   FamilyClaimView,
   ItemInput,
   Lang,
+  Me,
   PrintedTotals,
   ShareSummary,
   TaxCountry,
@@ -97,9 +98,48 @@ async function exchangeSession(
   return data.user;
 }
 
+/** 邮箱+密码换本站 JWT 并存起来。register 与 login 走同一响应格式。 */
+async function credentialSession(
+  path: '/auth/register' | '/auth/login',
+  email: string,
+  password: string,
+): Promise<AuthUser> {
+  const res = await fetch(`${BASE}${path}`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+  const data = (await res.json().catch(() => null)) as {
+    token: string;
+    user: AuthUser;
+    error?: unknown;
+  } | null;
+  if (!res.ok) {
+    // 服务端的中文提示(邮箱已注册 / 邮箱或密码不正确)直接透出,比 HTTP 码有用
+    const msg =
+      typeof data?.error === 'string'
+        ? data.error
+        : t('login.failed', { status: res.status });
+    throw new Error(msg);
+  }
+  setToken(data!.token);
+  return data!.user;
+}
+
 export const api = {
   /** 开发登录:邮箱换 JWT(server ALLOW_DEV_LOGIN=1)。 */
   login: (email: string) => exchangeSession('dev', email),
+
+  /** 邮箱密码注册(免费)。 */
+  register: (email: string, password: string) =>
+    credentialSession('/auth/register', email, password),
+
+  /** 邮箱密码登录。 */
+  loginWithPassword: (email: string, password: string) =>
+    credentialSession('/auth/login', email, password),
+
+  /** 当前用户 + 本月额度。 */
+  me: () => req<Me>('/me'),
 
   /** Google 登录:把 Google id token 换成本站 JWT。 */
   loginWithGoogle: (idToken: string) => exchangeSession('google', idToken),

@@ -52,6 +52,7 @@ const sampleBill = (): Bill => ({
   createdAt: new Date().toISOString(),
   shareToken: crypto.randomUUID(),
   invoiceUrl: null,
+  quotaChargedAt: null,
   printedTotals: null,
   items: [],
   families: [],

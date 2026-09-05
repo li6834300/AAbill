@@ -1,6 +1,7 @@
 import {
   AccessCodeSchema,
   BillCreateSchema,
+  CredentialsSchema,
   ClaimBatchSchema,
   claimableUnits,
   EnterFamilySchema,
@@ -40,10 +41,22 @@ import {
   type IdentityVerifier,
 } from './auth/verifier.js';
 import type { BillRepo } from './repo.js';
+import { hashPassword, verifyPassword } from './auth/password.js';
+import { quotaStatus } from './quota.js';
+import {
+  createInMemoryUserRepo,
+  normalizeEmail,
+  subFromEmail,
+  type User,
+  type UserRepo,
+} from './users.js';
 import { createNullStore, type FileStore } from './storage/file-store.js';
 
 export interface AppDeps {
   repo: BillRepo;
+  userRepo?: UserRepo;
+  /** 可注入时钟,便于测试跨月重置 */
+  now?: () => Date;
   parser?: ReceiptParser;
   verifier?: IdentityVerifier;
   jwtSecret?: string;
@@ -173,11 +186,77 @@ export function createApp({
   jwtSecret = 'dev-insecure-secret',
   fileStore = createNullStore(),
   suggester = createMockSuggester(),
+  userRepo = createInMemoryUserRepo(),
+  now = () => new Date(),
 }: AppDeps) {
   const app = new Hono<Env>();
   app.use('*', cors());
 
   app.get('/health', (c) => c.json({ status: 'ok' }));
+
+  /**
+   * 取得(必要时补建)用户记录。
+   * 老 token 与 OAuth/dev 登录都没有 users 行,额度又必须挂在用户上,
+   * 故在此惰性补建 —— 默认 free 套餐,不影响其既有账单归属。
+   */
+  async function ensureUser(sub: string, email: string): Promise<User> {
+    const existing = await userRepo.findById(sub);
+    if (existing) return existing;
+    return userRepo.create({
+      id: sub,
+      email: normalizeEmail(email),
+      passwordHash: null,
+      plan: 'free',
+      createdAt: new Date().toISOString(),
+    });
+  }
+
+  /** 会话响应体:绝不外泄 passwordHash。 */
+  async function sessionBody(user: User) {
+    return {
+      token: await issueToken({ sub: user.id, email: user.email }, jwtSecret),
+      user: { sub: user.id, email: user.email, plan: user.plan },
+    };
+  }
+
+  // 邮箱+密码注册。生产此前无任何可用登录方式(未配 GOOGLE_CLIENT_ID
+  // 且禁开 ALLOW_DEV_LOGIN),这是第一条能真正注册进来的路径。
+  app.post('/auth/register', async (c) => {
+    const parsed = CredentialsSchema.safeParse(
+      await c.req.json().catch(() => null),
+    );
+    if (!parsed.success) return c.json({ error: parsed.error.issues }, 400);
+    const email = normalizeEmail(parsed.data.email);
+
+    if (await userRepo.findByEmail(email)) {
+      return c.json({ error: '该邮箱已注册,请直接登录' }, 409);
+    }
+    const user = await userRepo.create({
+      id: subFromEmail(email),
+      email,
+      passwordHash: await hashPassword(parsed.data.password),
+      plan: 'free',
+      createdAt: new Date().toISOString(),
+    });
+    return c.json(await sessionBody(user), 201);
+  });
+
+  // 邮箱+密码登录。密码错与账号不存在必须返回**完全相同**的响应,
+  // 否则接口能被用来枚举哪些邮箱已注册。
+  app.post('/auth/login', async (c) => {
+    const parsed = CredentialsSchema.safeParse(
+      await c.req.json().catch(() => null),
+    );
+    if (!parsed.success) return c.json({ error: parsed.error.issues }, 400);
+    const denied = c.json({ error: '邮箱或密码不正确' }, 401);
+
+    const user = await userRepo.findByEmail(parsed.data.email);
+    if (!user?.passwordHash) return denied;
+    if (!(await verifyPassword(parsed.data.password, user.passwordHash))) {
+      return denied;
+    }
+    return c.json(await sessionBody(user));
+  });
 
   // OAuth id token → 应用 JWT(PRD §5.3)。校验交给 verifier(Google/Apple/dev)。
   app.post('/auth/session', async (c) => {
@@ -198,9 +277,24 @@ export function createApp({
       );
       return c.json({ error: '登录校验失败' }, 401);
     }
-    const user: AuthUser = { sub: identity.sub, email: identity.email };
-    return c.json({ token: await issueToken(user, jwtSecret), user });
+    // OAuth/dev 登录同样补建用户行 —— 额度挂在用户上,三条登录路径必须收敛到同一处
+    const record = await ensureUser(identity.sub, identity.email);
+    return c.json(await sessionBody(record));
   });
+
+  /** 读某用户本计费期的额度状态(纯读,不扣减)。 */
+  async function readQuota(user: User) {
+    const at = now();
+    const status = quotaStatus(
+      user.plan,
+      await repo.countChargedSince(
+        user.id,
+        quotaStatus(user.plan, 0, at).periodStart.toISOString(),
+      ),
+      at,
+    );
+    return status;
+  }
 
   // Owner 鉴权:/bills 全部路由需有效 JWT(Participant 走 /share/*,不经此)
   const requireOwner: MiddlewareHandler<Env> = async (c, next) => {
@@ -213,6 +307,26 @@ export function createApp({
   };
   app.use('/bills', requireOwner);
   app.use('/bills/*', requireOwner);
+  app.use('/me', requireOwner);
+
+  // 当前用户 + 本月额度,供界面显示"本月还剩几次"。绝不返回 passwordHash。
+  app.get('/me', async (c) => {
+    const auth = c.get('user');
+    const user = await ensureUser(auth.sub, auth.email);
+    const q = await readQuota(user);
+    return c.json({
+      sub: user.id,
+      email: user.email,
+      plan: user.plan,
+      quota: {
+        plan: q.plan,
+        limit: q.limit,
+        used: q.used,
+        remaining: q.remaining,
+        resetsAt: q.resetsAt.toISOString(),
+      },
+    });
+  });
 
   // 锁定守卫(PRD D1):锁定后 Owner 的一切修改拒绝;/lock 除外(幂等)
   app.use('/bills/:id/*', async (c, next) => {
@@ -243,6 +357,7 @@ export function createApp({
       createdAt: new Date().toISOString(),
       shareToken: crypto.randomUUID(),
       invoiceUrl: null,
+      quotaChargedAt: null,
       printedTotals: null,
       items: [],
       families: [],
@@ -556,12 +671,40 @@ export function createApp({
     );
     if (!parsed.success) return c.json({ error: parsed.error.issues }, 400);
 
+    // 额度闸门:只拦**首次**识别。已扣过额度的账单可无限重识别(拍糊了重试不受罚)。
+    // 检查放在调用 AI 之前 —— 超限就不该产生 OpenAI 费用。
+    const auth = c.get('user');
+    const user = await ensureUser(auth.sub, auth.email);
+    const isFirstParse = bill.quotaChargedAt === null;
+    if (isFirstParse) {
+      const q = await readQuota(user);
+      if (!q.canConsume) {
+        return c.json(
+          {
+            error: `本月 AI 识别额度已用完(${q.used}/${q.limit})`,
+            quota: {
+              plan: q.plan,
+              limit: q.limit,
+              used: q.used,
+              remaining: q.remaining,
+              resetsAt: q.resetsAt.toISOString(),
+            },
+          },
+          402,
+        );
+      }
+    }
+
     let receipt;
     try {
       receipt = await parser.parseReceipt(parsed.data);
     } catch (err) {
+      // 识别失败不扣额度:钱没花出结果,不该记在用户头上
       return c.json({ error: `识别失败: ${String(err)}` }, 502);
     }
+
+    // 识别成功才落扣减标记
+    if (isFirstParse) bill.quotaChargedAt = now().toISOString();
 
     // 存原始发票供回看(PRD §5.4)。存储失败不阻断识别 —— 存图是次要功能。
     try {
