@@ -218,6 +218,17 @@ const zh = {
   'quota.exhausted': '本月 AI 识别额度已用完',
   'quota.resets': '{date} 恢复',
   'quota.proHint': '升级 PRO 可获得更多额度',
+  'verify.title': '去邮箱完成验证',
+  'verify.sentTo': '验证邮件已发到 {email},点击信里的链接即可完成注册。',
+  'verify.expires': '链接 24 小时内有效。没收到?看看垃圾邮件箱。',
+  'verify.resend': '重新发送',
+  'verify.resent': '已重新发送,请查收',
+  'verify.needed': '邮箱还没验证,请先完成验证再登录。',
+  'verify.working': '正在验证…',
+  'verify.ok': '验证成功,正在进入…',
+  'verify.failed': '验证失败:链接可能已过期或已使用。',
+  'verify.backHome': '返回首页',
+  'signup.full': '今天的注册名额已满,请明天再来。',
   'lang.label': '语言',
 } as const;
 
@@ -441,6 +452,20 @@ const en: Catalog = {
   'quota.exhausted': 'Monthly AI scan allowance used up',
   'quota.resets': 'Resets {date}',
   'quota.proHint': 'Upgrade to PRO for more',
+  'verify.title': 'Check your email',
+  'verify.sentTo':
+    'We sent a verification email to {email}. Click the link inside to finish signing up.',
+  'verify.expires':
+    'The link is valid for 24 hours. Not there? Check your spam folder.',
+  'verify.resend': 'Resend',
+  'verify.resent': 'Sent again — please check your inbox',
+  'verify.needed': 'Your email is not verified yet. Please verify it first.',
+  'verify.working': 'Verifying…',
+  'verify.ok': 'Verified — taking you in…',
+  'verify.failed':
+    'Verification failed: the link may have expired or been used.',
+  'verify.backHome': 'Back to start',
+  'signup.full': "Today's sign-up slots are full. Please try again tomorrow.",
   'lang.label': 'Language',
 };
 
@@ -668,6 +693,20 @@ const nl: Catalog = {
   'quota.exhausted': 'Maandelijkse AI-scans op',
   'quota.resets': 'Weer beschikbaar op {date}',
   'quota.proHint': 'Upgrade naar PRO voor meer',
+  'verify.title': 'Check je e-mail',
+  'verify.sentTo':
+    'We hebben een verificatiemail naar {email} gestuurd. Klik op de link erin om je registratie af te ronden.',
+  'verify.expires':
+    'De link is 24 uur geldig. Niets ontvangen? Kijk in je spammap.',
+  'verify.resend': 'Opnieuw versturen',
+  'verify.resent': 'Opnieuw verstuurd — check je inbox',
+  'verify.needed': 'Je e-mailadres is nog niet geverifieerd.',
+  'verify.working': 'Bezig met verifiëren…',
+  'verify.ok': 'Geverifieerd — je wordt ingelogd…',
+  'verify.failed':
+    'Verificatie mislukt: de link is mogelijk verlopen of al gebruikt.',
+  'verify.backHome': 'Terug naar start',
+  'signup.full': 'De aanmeldplekken voor vandaag zijn vol. Probeer het morgen.',
   'lang.label': 'Taal',
 };
 
@@ -898,6 +937,20 @@ const de: Catalog = {
   'quota.exhausted': 'Monatliche KI-Scans aufgebraucht',
   'quota.resets': 'Zurückgesetzt am {date}',
   'quota.proHint': 'PRO bietet mehr Kontingent',
+  'verify.title': 'Schau in deine E-Mail',
+  'verify.sentTo':
+    'Wir haben eine Bestätigungs-E-Mail an {email} geschickt. Klicke den Link darin, um die Registrierung abzuschließen.',
+  'verify.expires':
+    'Der Link gilt 24 Stunden. Nichts erhalten? Sieh im Spam-Ordner nach.',
+  'verify.resend': 'Erneut senden',
+  'verify.resent': 'Erneut gesendet — bitte Posteingang prüfen',
+  'verify.needed': 'Deine E-Mail-Adresse ist noch nicht bestätigt.',
+  'verify.working': 'Wird bestätigt…',
+  'verify.ok': 'Bestätigt — du wirst angemeldet…',
+  'verify.failed':
+    'Bestätigung fehlgeschlagen: Der Link ist abgelaufen oder wurde bereits benutzt.',
+  'verify.backHome': 'Zurück zum Start',
+  'signup.full': 'Die Anmeldeplätze für heute sind voll. Versuch es morgen.',
   'lang.label': 'Sprache',
 };
 

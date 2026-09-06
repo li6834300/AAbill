@@ -9,13 +9,21 @@ export interface User {
   passwordHash: string | null;
   plan: Plan;
   createdAt: string;
+  /** 邮箱验证通过的时刻(ISO);null = 尚未验证,不得登录。 */
+  emailVerifiedAt: string | null;
+  /** 待验证令牌的哈希(只存哈希,见 auth/verification.ts);null = 无待验证令牌。 */
+  verificationTokenHash: string | null;
+  verificationExpiresAt: string | null;
 }
 
 export interface UserRepo {
   create(user: User): Promise<User>;
   findByEmail(email: string): Promise<User | undefined>;
   findById(id: string): Promise<User | undefined>;
+  findByVerificationTokenHash(hash: string): Promise<User | undefined>;
   save(user: User): Promise<User>;
+  /** 自 sinceIso 起**已验证**的账号数(每日注册名额按此计,未验证的不占)。 */
+  countVerifiedSince(sinceIso: string): Promise<number>;
 }
 
 /** 邮箱规范化:去首尾空格 + 转小写。存与查都必须过这一层,否则同一人会开出两个号。 */
@@ -48,6 +56,14 @@ export function createInMemoryUserRepo(): UserRepo {
     },
     async findById(id) {
       return byId.get(id);
+    },
+    async findByVerificationTokenHash(hash) {
+      return [...byId.values()].find((u) => u.verificationTokenHash === hash);
+    },
+    async countVerifiedSince(sinceIso) {
+      return [...byId.values()].filter(
+        (u) => u.emailVerifiedAt !== null && u.emailVerifiedAt >= sinceIso,
+      ).length;
     },
     async save(user) {
       byId.set(user.id, user);

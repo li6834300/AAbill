@@ -1,6 +1,7 @@
 import type { ReceiptParser } from '../src/ai/provider.js';
 import { createApp } from '../src/app.js';
 import { createMockVerifier } from '../src/auth/verifier.js';
+import type { CaptureMailer } from '../src/mail/mailer.js';
 import { createInMemoryRepo, type BillRepo } from '../src/repo.js';
 import type { ClaimSuggester } from '../src/ai/suggester.js';
 import type { FileStore } from '../src/storage/file-store.js';
@@ -34,6 +35,39 @@ export function testApp(
 }
 
 type App = ReturnType<typeof testApp>;
+
+/**
+ * 走完整的「注册 → 收信 → 点链接验证」拿到可用 JWT。
+ * 邮箱验证接入后,注册本身不再签发 token(未验证不得登录),
+ * 所以需要登录态的测试都得过这一道。
+ */
+export async function signUpVerified(
+  app: App,
+  mailer: CaptureMailer,
+  email = 'user@example.com',
+  password = 'goodpassword',
+): Promise<string> {
+  const body = (b: unknown) =>
+    new Request('http://x/auth/register', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(b),
+    });
+  await app.request(body({ email, password }));
+  const text = mailer.sent.at(-1)?.text ?? '';
+  const m = /token=([0-9a-f]{64})/.exec(text);
+  if (!m) throw new Error(`验证信里没有令牌: ${text}`);
+  const res = await app.request(
+    new Request('http://x/auth/verify', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ token: m[1] }),
+    }),
+  );
+  const data = (await res.json()) as { token?: string };
+  if (!data.token) throw new Error(`验证失败: ${JSON.stringify(data)}`);
+  return data.token;
+}
 
 export async function ownerToken(
   app: App,

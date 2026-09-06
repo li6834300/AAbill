@@ -98,13 +98,24 @@ async function exchangeSession(
   return data.user;
 }
 
-/** 邮箱+密码换本站 JWT 并存起来。register 与 login 走同一响应格式。 */
-async function credentialSession(
-  path: '/auth/register' | '/auth/login',
+/** 登录失败时服务端的中文提示比 HTTP 码有用,优先透出。 */
+function authError(data: { error?: unknown } | null, status: number): Error {
+  return new Error(
+    typeof data?.error === 'string'
+      ? data.error
+      : t('login.failed', { status }),
+  );
+}
+
+/** 未验证邮箱导致的登录失败,界面据此切到"去验证"提示。 */
+export class NeedsVerificationError extends Error {}
+
+/** 邮箱+密码登录,成功即存 token。 */
+async function passwordLogin(
   email: string,
   password: string,
 ): Promise<AuthUser> {
-  const res = await fetch(`${BASE}${path}`, {
+  const res = await fetch(`${BASE}/auth/login`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ email, password }),
@@ -113,17 +124,35 @@ async function credentialSession(
     token: string;
     user: AuthUser;
     error?: unknown;
+    needsVerification?: boolean;
   } | null;
-  if (!res.ok) {
-    // 服务端的中文提示(邮箱已注册 / 邮箱或密码不正确)直接透出,比 HTTP 码有用
-    const msg =
-      typeof data?.error === 'string'
-        ? data.error
-        : t('login.failed', { status: res.status });
-    throw new Error(msg);
+  if (res.status === 403 && data?.needsVerification) {
+    throw new NeedsVerificationError(t('verify.needed'));
   }
+  if (!res.ok) throw authError(data, res.status);
   setToken(data!.token);
   return data!.user;
+}
+
+/**
+ * 注册:服务端只受理并发验证信(202),**不签发 JWT** ——
+ * 必须点邮件里的链接验证后才能登录。
+ */
+async function registerAccount(
+  email: string,
+  password: string,
+): Promise<{ pendingVerification: true; email: string }> {
+  const res = await fetch(`${BASE}/auth/register`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+  const data = (await res.json().catch(() => null)) as {
+    error?: unknown;
+    email?: string;
+  } | null;
+  if (!res.ok) throw authError(data, res.status);
+  return { pendingVerification: true, email: data?.email ?? email };
 }
 
 export const api = {
@@ -131,12 +160,36 @@ export const api = {
   login: (email: string) => exchangeSession('dev', email),
 
   /** 邮箱密码注册(免费)。 */
-  register: (email: string, password: string) =>
-    credentialSession('/auth/register', email, password),
+  register: registerAccount,
 
-  /** 邮箱密码登录。 */
-  loginWithPassword: (email: string, password: string) =>
-    credentialSession('/auth/login', email, password),
+  /** 邮箱密码登录。未验证会抛 NeedsVerificationError。 */
+  loginWithPassword: passwordLogin,
+
+  /** 点验证链接:换 JWT 并存起来。 */
+  verifyEmail: async (token: string): Promise<AuthUser> => {
+    const res = await fetch(`${BASE}/auth/verify`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ token }),
+    });
+    const data = (await res.json().catch(() => null)) as {
+      token: string;
+      user: AuthUser;
+      error?: unknown;
+    } | null;
+    if (!res.ok) throw authError(data, res.status);
+    setToken(data!.token);
+    return data!.user;
+  },
+
+  /** 重发验证信。服务端一律 202(不泄露邮箱是否注册),故不抛错。 */
+  resendVerification: async (email: string): Promise<void> => {
+    await fetch(`${BASE}/auth/resend-verification`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email }),
+    }).catch(() => {});
+  },
 
   /** 当前用户 + 本月额度。 */
   me: () => req<Me>('/me'),

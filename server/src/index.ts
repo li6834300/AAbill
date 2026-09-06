@@ -10,12 +10,17 @@ import { createInMemoryRepo, type BillRepo } from './repo.js';
 import { createInMemoryUserRepo, type UserRepo } from './users.js';
 import { createPostgresUserRepo } from './db/pg-user-repo.js';
 import { selectFileStore } from './storage/file-store.js';
+import { selectMailer } from './mail/mailer.js';
 
 const port = Number(process.env.PORT ?? 3000);
 const { kind, parser } = selectParser(process.env);
 const { suggester } = selectSuggester(process.env);
 const verifier = selectVerifier(process.env);
 const { kind: storeKind, store: fileStore } = selectFileStore(process.env);
+// 配了 RESEND_API_KEY 却漏了 MAIL_FROM 会在此直接抛错 —— 宁可启动失败,
+// 也好过每个注册用户都收不到验证信却毫无察觉。
+const { kind: mailKind, mailer } = selectMailer(process.env);
+const appBaseUrl = process.env.APP_BASE_URL?.trim();
 
 const jwtSecret = process.env.JWT_SECRET;
 if (!jwtSecret) {
@@ -52,6 +57,8 @@ const { repoKind, repo, userRepo } = await makeRepo();
 const app = createApp({
   repo,
   userRepo,
+  mailer,
+  ...(appBaseUrl ? { appBaseUrl } : {}),
   parser,
   verifier,
   fileStore,
@@ -64,6 +71,7 @@ const authKind =
 serve({ fetch: app.fetch, port }, (info) => {
   console.log(
     `AAbill server listening on :${info.port}` +
-      `(AI: ${kind} / DB: ${repoKind} / Auth: ${authKind} / Store: ${storeKind})`,
+      `(AI: ${kind} / DB: ${repoKind} / Auth: ${authKind} / Store: ${storeKind}` +
+      ` / Mail: ${mailKind})`,
   );
 });
