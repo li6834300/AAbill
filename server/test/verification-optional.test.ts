@@ -32,7 +32,9 @@ const creds = (email: string) => ({ email, password: 'goodpassword' });
 describe('未配发信通道时:注册即开通', () => {
   it('注册直接返回 201 与可用 JWT', async () => {
     const app = makeApp(false);
-    const res = await app.request(post('/auth/register', creds('a@example.com')));
+    const res = await app.request(
+      post('/auth/register', creds('a@example.com')),
+    );
     expect(res.status).toBe(201);
     const body = await j<{ token: string; user: { email: string } }>(res);
     expect(body.token).toBeTruthy();
@@ -76,17 +78,23 @@ describe('未配发信通道时:注册即开通', () => {
   it('仍受每天 10 个上限约束', async () => {
     const app = makeApp(false, () => new Date('2026-09-06T09:00:00Z'));
     for (let i = 0; i < 10; i++) {
-      const r = await app.request(post('/auth/register', creds(`u${i}@example.com`)));
+      const r = await app.request(
+        post('/auth/register', creds(`u${i}@example.com`)),
+      );
       expect(r.status).toBe(201);
     }
-    const res = await app.request(post('/auth/register', creds('overflow@example.com')));
+    const res = await app.request(
+      post('/auth/register', creds('overflow@example.com')),
+    );
     expect(res.status).toBe(429);
   });
 
   it('邮箱重复仍然 409', async () => {
     const app = makeApp(false);
     await app.request(post('/auth/register', creds('dup@example.com')));
-    const res = await app.request(post('/auth/register', creds('dup@example.com')));
+    const res = await app.request(
+      post('/auth/register', creds('dup@example.com')),
+    );
     expect(res.status).toBe(409);
   });
 });
@@ -94,9 +102,13 @@ describe('未配发信通道时:注册即开通', () => {
 describe('配了发信通道时:行为不变', () => {
   it('仍返回 202 且必须验证', async () => {
     const app = makeApp(true);
-    const res = await app.request(post('/auth/register', creds('a@example.com')));
+    const res = await app.request(
+      post('/auth/register', creds('a@example.com')),
+    );
     expect(res.status).toBe(202);
-    const login = await app.request(post('/auth/login', creds('a@example.com')));
+    const login = await app.request(
+      post('/auth/login', creds('a@example.com')),
+    );
     expect(login.status).toBe(403);
   });
 });
