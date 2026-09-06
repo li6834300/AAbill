@@ -54,10 +54,16 @@ async function makeRepo(): Promise<{
 }
 
 const { repoKind, repo, userRepo } = await makeRepo();
+// 没有真实发信通道(mailKind === 'console')时不强制验证:
+// 验证信只会进服务器日志,用户永远收不到,要求验证等于把注册通道关死。
+// 配上 RESEND_API_KEY 后验证自动生效,无需改代码。
+const verificationRequired = mailKind !== 'console';
+
 const app = createApp({
   repo,
   userRepo,
   mailer,
+  verificationRequired,
   ...(appBaseUrl ? { appBaseUrl } : {}),
   parser,
   verifier,
@@ -72,6 +78,6 @@ serve({ fetch: app.fetch, port }, (info) => {
   console.log(
     `AAbill server listening on :${info.port}` +
       `(AI: ${kind} / DB: ${repoKind} / Auth: ${authKind} / Store: ${storeKind}` +
-      ` / Mail: ${mailKind})`,
+      ` / Mail: ${mailKind} / 邮箱验证: ${verificationRequired ? '开' : '关'})`,
   );
 });

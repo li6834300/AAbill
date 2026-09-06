@@ -65,6 +65,11 @@ export interface AppDeps {
   /** 可注入时钟,便于测试跨月重置 */
   now?: () => Date;
   mailer?: Mailer;
+  /**
+   * 是否强制邮箱验证。默认 true;由 index.ts 按"是否配了真实发信通道"决定 ——
+   * 发不出信却要求用户去点链接,等于注册通道彻底不可用。
+   */
+  verificationRequired?: boolean;
   /** 验证链接指向的前端地址 */
   appBaseUrl?: string;
   parser?: ReceiptParser;
@@ -202,6 +207,7 @@ export function createApp({
   userRepo = createInMemoryUserRepo(),
   now = () => new Date(),
   mailer = createConsoleMailer(),
+  verificationRequired = true,
   appBaseUrl = 'http://localhost:8081',
 }: AppDeps) {
   const app = new Hono<Env>();
@@ -300,10 +306,15 @@ export function createApp({
       passwordHash: await hashPassword(parsed.data.password),
       plan: 'free',
       createdAt: at,
-      emailVerifiedAt: null,
+      // 没有真实发信通道时直接算已验证 —— 见 verificationRequired 的说明
+      emailVerifiedAt: verificationRequired ? null : at,
       verificationTokenHash: null,
       verificationExpiresAt: null,
     });
+    if (!verificationRequired) {
+      // 发不出去的信就别发,直接签发 JWT
+      return c.json(await sessionBody(user), 201);
+    }
     await issueVerification(user);
     // 202:已受理但还不能用 —— 不签发 JWT,必须先验证邮箱
     return c.json({ pendingVerification: true, email }, 202);
